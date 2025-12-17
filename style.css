@@ -1,101 +1,177 @@
-/* 基本樣式 */
+/* Global Styles */
+:root {
+  --bg-color: #121212;
+  --card-bg: #1e1e1e;
+  --text-primary: #e0e0e0;
+  --text-secondary: #a0a0a0;
+  --accent-color: #bb86fc;
+  --font-heading: "Playfair Display", serif;
+  --font-body: "Noto Sans TC", sans-serif;
+}
+
 body {
-    font-family: sans-serif;
-    margin: 0;
-    background-color: #f0f0f0;
-    color: #333;
+  font-family: var(--font-body);
+  margin: 0;
+  background-color: var(--bg-color);
+  color: var(--text-primary);
+  line-height: 1.6;
 }
 
-header, footer {
-    text-align: center;
-    padding: 1em 0;
-    background-color: #fff;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+/* Typography */
+h1,
+h2,
+h3 {
+  font-family: var(--font-heading);
+  font-weight: 700;
 }
 
-h1 {
-    margin: 0;
+/* Header */
+header {
+  text-align: center;
+  padding: 3em 1em;
+  background: linear-gradient(to bottom, #1a1a1a, #121212);
+  border-bottom: 1px solid #333;
 }
 
+header h1 {
+  margin: 0;
+  font-size: 3rem;
+  letter-spacing: 2px;
+  color: var(--text-primary);
+}
+
+.subtitle {
+  margin-top: 0.5em;
+  font-size: 1.1rem;
+  color: var(--text-secondary);
+  font-style: italic;
+  font-family: var(--font-heading);
+}
+
+/* Main Layout */
 main {
-    padding: 20px;
+  padding: 40px 20px;
+  max-width: 1200px;
+  margin: 0 auto;
 }
 
-/* 畫廊容器 - 瀑布流佈局 */
+/* Masonry Gallery */
 .gallery-container {
-    column-count: 3;
-    column-gap: 15px;
-    padding: 15px;
+  column-count: 3;
+  column-gap: 24px;
 }
 
 .gallery-item {
-    width: 100%;
-    height: auto;
-    display: block;
-    border-radius: 8px;
-    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-    transition: transform 0.3s ease, box-shadow 0.3s ease;
-    cursor: pointer;
-    margin-bottom: 15px; /* 新增底部間距 */
-    break-inside: avoid; /* 防止圖片在欄位中被切斷 */
-}
-
-/* 響應式調整 */
-@media (max-width: 992px) {
-    .gallery-container {
-        column-count: 2;
-    }
-}
-
-@media (max-width: 576px) {
-    .gallery-container {
-        column-count: 1;
-    }
+  width: 100%;
+  margin-bottom: 24px; /* Space between items vertically */
+  border-radius: 4px;
+  display: block;
+  cursor: pointer;
+  transition: transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+    filter 0.3s ease;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+  border: 1px solid #333;
 }
 
 .gallery-item:hover {
-    transform: scale(1.03);
-    box-shadow: 0 8px 16px rgba(0,0,0,0.2);
+  transform: scale(1.02);
+  filter: brightness(1.1);
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.5);
+  border-color: var(--accent-color);
 }
 
-/* 燈箱樣式 */
+/* Responsive Masonry */
+@media (max-width: 900px) {
+  .gallery-container {
+    column-count: 2;
+  }
+}
+
+@media (max-width: 600px) {
+  .gallery-container {
+    column-count: 1;
+  }
+  header h1 {
+    font-size: 2rem;
+  }
+}
+
+/* Footer */
+footer {
+  background-color: #0f0f0f;
+  color: var(--text-secondary);
+  text-align: center;
+  padding: 3em 1em;
+  border-top: 1px solid #333;
+  margin-top: 40px;
+}
+
+.contact-info p {
+  margin: 0.5em 0;
+  font-size: 1rem;
+  letter-spacing: 0.5px;
+}
+
+.contact-info p:first-child {
+  font-family: var(--font-heading);
+  font-size: 1.3rem;
+  color: var(--text-primary);
+  margin-bottom: 1em;
+}
+
+.copyright {
+  margin-top: 2em;
+  font-size: 0.8rem;
+  opacity: 0.6;
+}
+
+/* Lightbox */
 .lightbox {
-    display: none; /* 預設隱藏 */
-    position: fixed;
-    z-index: 1000;
-    left: 0;
-    top: 0;
-    width: 100%;
-    height: 100%;
-    background-color: rgba(0, 0, 0, 0.85);
-    justify-content: center;
-    align-items: center;
+  display: none;
+  position: fixed;
+  z-index: 2000;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.95);
+  justify-content: center;
+  align-items: center;
+  backdrop-filter: blur(5px);
 }
 
 .lightbox-content {
-    max-width: 90%;
-    max-height: 80%;
-    display: block;
-    margin: auto;
-    animation: zoomIn 0.5s;
+  max-width: 90%;
+  max-height: 85%;
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.8);
+  border: 2px solid #333;
+  animation: fadeIn 0.4s ease-out;
 }
 
-@keyframes zoomIn {
-    from {transform: scale(0.5);}
-    to {transform: scale(1);}
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 .close-btn {
-    position: absolute;
-    top: 20px;
-    right: 35px;
-    color: #fff;
-    font-size: 40px;
-    font-weight: bold;
-    cursor: pointer;
-    transition: color 0.3s;
+  position: absolute;
+  top: 25px;
+  right: 40px;
+  color: #e0e0e0;
+  font-size: 50px;
+  font-weight: 300;
+  cursor: pointer;
+  transition: color 0.3s;
+  z-index: 2001;
+  line-height: 0.6;
 }
 
 .close-btn:hover {
-    color: #ccc;
+  color: var(--accent-color);
 }
