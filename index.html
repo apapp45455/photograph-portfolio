@@ -1,39 +1,56 @@
 <!DOCTYPE html>
 <html lang="zh-Hant">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>大衛的攝影網站</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;700&family=Playfair+Display:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css">
-</head>
-<body>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;700&family=Playfair+Display:ital,wght@0,400;0,700;1,400&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
     <header>
-        <h1>大衛的攝影網站</h1>
-        <p class="subtitle">Capturing Moments, Creating Memories</p>
+      <h1>大衛的攝影網站</h1>
+      <p class="subtitle">Capturing Moments, Creating Memories</p>
     </header>
     <main>
-        <div class="gallery-container" id="gallery-container">
-            <!-- 圖片將由 JavaScript 動態載入 -->
-        </div>
+      <div class="gallery-container" id="gallery-container">
+        <!-- 圖片將由 JavaScript 動態載入 -->
+      </div>
     </main>
     <footer>
-        <div class="contact-info">
-            <p>Contact Me</p>
-            <p>Phone: (+886) 0968112709</p>
-            <p>Email: apapp45455@gmail.com</p>
-        </div>
-        <p class="copyright">&copy; 2025 David Wang. All rights reserved.</p>
+      <div class="contact-info">
+        <p class="contact-header">Contact Me</p>
+        <p>Phone: (+886) 0968112709</p>
+        <p>Email: apapp45455@gmail.com</p>
+      </div>
+      <p class="copyright">&copy; 2025 David Wang. All rights reserved.</p>
     </footer>
 
     <!-- 燈箱結構 -->
+    <!-- Lightbox Structure -->
     <div id="lightbox" class="lightbox">
-        <span class="close-btn">&times;</span>
-        <img class="lightbox-content" id="lightbox-img">
+      <span class="close-btn">&times;</span>
+
+      <button class="nav-btn prev-btn" id="prev-btn">&#10094;</button>
+
+      <div class="lightbox-content-wrapper">
+        <img
+          class="lightbox-img"
+          id="lightbox-img"
+          src=""
+          alt="Enlarged view"
+        />
+        <p class="lightbox-caption" id="lightbox-caption"></p>
+      </div>
+
+      <button class="nav-btn next-btn" id="next-btn">&#10095;</button>
     </div>
 
     <script src="script.js"></script>
-</body>
+  </body>
 </html>

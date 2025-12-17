@@ -1,44 +1,115 @@
-document.addEventListener('DOMContentLoaded', () => {
-    const gallery = document.getElementById('gallery-container');
-    const lightbox = document.getElementById('lightbox');
-    const lightboxImg = document.getElementById('lightbox-img');
-    const closeBtn = document.querySelector('.close-btn');
+document.addEventListener("DOMContentLoaded", () => {
+  const gallery = document.getElementById("gallery-container");
+  const lightbox = document.getElementById("lightbox");
+  const lightboxImg = document.getElementById("lightbox-img");
+  const lightboxCaption = document.getElementById("lightbox-caption");
+  const closeBtn = document.querySelector(".close-btn");
+  const prevBtn = document.getElementById("prev-btn");
+  const nextBtn = document.getElementById("next-btn");
 
-    // --- 設定 ---
-    // 請將你的圖片檔名放在這個陣列中
-    const images = [
-        "中原_土木館.jpg",
-        "中原_室設外景.JPG",
-        "四四南村_街景.jpg",
-        "四四南村_天空.jpg"
-    ];
-    const imagePath = 'images/';
+  // --- Configuration ---
+  const imagePath = "images/";
+  const images = [
+    "中原_土木館.jpg",
+    "中原_室設外景.JPG",
+    "四四南村_街景.jpg",
+    "四四南村_天空.jpg",
+  ];
 
-    // --- 動態載入圖片到畫廊 ---
-    images.forEach(imgName => {
-        const img = document.createElement('img');
-        img.src = imagePath + imgName;
-        img.alt = "攝影作品";
-        img.classList.add('gallery-item');
-        gallery.appendChild(img);
+  let currentIndex = 0;
 
-        // --- 為每張圖片添加點擊事件監聽器 ---
-        img.addEventListener('click', () => {
-            lightbox.style.display = 'flex'; // 顯示燈箱
-            lightboxImg.src = img.src; // 設定燈箱圖片來源
-        });
+  // --- Helpers ---
+  const getCaption = (filename) => {
+    // Remove extension and replace underscores with spaces
+    return filename.replace(/\.[^/.]+$/, "").replace(/_/g, " ");
+  };
+
+  // --- Initialization ---
+  const initGallery = () => {
+    images.forEach((imgName, index) => {
+      // Create wrapper
+      const wrapper = document.createElement("div");
+      wrapper.classList.add("gallery-item-wrapper");
+
+      const img = document.createElement("img");
+      img.src = imagePath + imgName;
+      img.alt = getCaption(imgName);
+      img.classList.add("gallery-item");
+      img.loading = "lazy"; // Native lazy loading
+
+      // Fade in when loaded
+      img.onload = () => {
+        img.classList.add("loaded");
+      };
+
+      wrapper.appendChild(img);
+      gallery.appendChild(wrapper);
+
+      // Click event
+      wrapper.addEventListener("click", () => {
+        openLightbox(index);
+      });
     });
+  };
 
-    // --- 關閉燈箱的事件 ---
-    const closeLightbox = () => {
-        lightbox.style.display = 'none';
-    };
+  // --- Lightbox Logic ---
+  const updateLightboxImage = () => {
+    const imgName = images[currentIndex];
+    lightboxImg.src = imagePath + imgName;
+    lightboxCaption.textContent = getCaption(imgName);
+  };
 
-    closeBtn.addEventListener('click', closeLightbox); // 點擊關閉按鈕
-    lightbox.addEventListener('click', (e) => {
-        // 如果點擊的是背景（而不是圖片本身），也關閉燈箱
-        if (e.target === lightbox) {
-            closeLightbox();
-        }
-    });
+  const openLightbox = (index) => {
+    currentIndex = index;
+    updateLightboxImage();
+    lightbox.classList.add("active"); // Use class for display: flex
+    document.body.style.overflow = "hidden"; // Prevent background scrolling
+  };
+
+  const closeLightbox = () => {
+    lightbox.classList.remove("active");
+    document.body.style.overflow = "";
+  };
+
+  const showNext = (e) => {
+    if (e) e.stopPropagation();
+    currentIndex = (currentIndex + 1) % images.length;
+    updateLightboxImage();
+  };
+
+  const showPrev = (e) => {
+    if (e) e.stopPropagation();
+    currentIndex = (currentIndex - 1 + images.length) % images.length;
+    updateLightboxImage();
+  };
+
+  // --- Event Listeners ---
+  closeBtn.addEventListener("click", closeLightbox);
+
+  // Close on background click
+  lightbox.addEventListener("click", (e) => {
+    if (
+      e.target === lightbox ||
+      (e.target.closest(".lightbox-content-wrapper") === null &&
+        !e.target.closest(".nav-btn"))
+    ) {
+      // If clicking background or outside content/buttons
+      if (e.target === lightbox) closeLightbox();
+    }
+  });
+
+  prevBtn.addEventListener("click", showPrev);
+  nextBtn.addEventListener("click", showNext);
+
+  // Keyboard support
+  document.addEventListener("keydown", (e) => {
+    if (!lightbox.classList.contains("active")) return;
+
+    if (e.key === "Escape") closeLightbox();
+    if (e.key === "ArrowRight") showNext();
+    if (e.key === "ArrowLeft") showPrev();
+  });
+
+  // Run
+  initGallery();
 });
