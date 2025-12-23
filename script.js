@@ -14,6 +14,10 @@ document.addEventListener("DOMContentLoaded", () => {
     "中原_室設外景.JPG",
     "四四南村_街景.jpg",
     "四四南村_天空.jpg",
+    "內壢_天橋.JPG",
+    "內壢_車站.jpeg",
+    "信義_101.jpeg",
+    "信義_新光三越.jpeg"
   ];
 
   let currentIndex = 0;
