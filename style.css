@@ -190,7 +190,12 @@ footer {
   flex-direction: row; /* Side-by-side layout */
   align-items: center;
   gap: 2rem; /* Space between image and info */
-  background: rgba(0, 0, 0, 0.8); /* Optional: slight background for the wrapper to unify */
+  background: rgba(
+    0,
+    0,
+    0,
+    0.8
+  ); /* Optional: slight background for the wrapper to unify */
   padding: 2rem;
   border-radius: 8px;
 }
@@ -219,7 +224,7 @@ footer {
   font-size: 2rem;
   margin-bottom: 1.5rem;
   letter-spacing: 1px;
-  border-bottom: 1px solid rgba(255,255,255,0.1);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   padding-bottom: 1rem;
 }
 
@@ -249,7 +254,7 @@ footer {
   align-items: baseline;
   gap: 1rem;
   width: 100%;
-  border-bottom: 1px solid rgba(255,255,255,0.05);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
   padding-bottom: 0.5rem;
 }
 
@@ -285,7 +290,7 @@ footer {
     text-align: center;
     margin-top: 1rem;
   }
-  
+
   .lightbox-caption {
     font-size: 1.5rem;
     margin-bottom: 1rem;
@@ -306,36 +311,10 @@ footer {
     padding-bottom: 0;
     align-items: center;
   }
-  
+
   .metadata-item .label {
     width: auto;
   }
-}
-
-.metadata-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
-  gap: 1rem;
-  justify-items: center;
-}
-
-.metadata-item {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.25rem;
-}
-
-.metadata-item .label {
-  font-size: 0.7rem;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  color: rgba(255, 255, 255, 0.4);
-}
-
-.metadata-item .value {
-  font-weight: 400;
-  white-space: nowrap;
 }
 
 .close-btn {
