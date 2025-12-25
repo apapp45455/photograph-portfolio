@@ -3,6 +3,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const lightbox = document.getElementById("lightbox");
   const lightboxImg = document.getElementById("lightbox-img");
   const lightboxCaption = document.getElementById("lightbox-caption");
+  const lightboxMetadata = document.getElementById("lightbox-metadata");
   const closeBtn = document.querySelector(".close-btn");
   const prevBtn = document.getElementById("prev-btn");
   const nextBtn = document.getElementById("next-btn");
@@ -10,14 +11,15 @@ document.addEventListener("DOMContentLoaded", () => {
   // --- Configuration ---
   const imagePath = "images/";
   const images = [
-    "中原_土木館.jpg",
-    "中原_室設外景.JPG",
-    "四四南村_街景.jpg",
-    "四四南村_天空.jpg",
-    "內壢_天橋.jpg",
-    "內壢_車站.jpeg",
-    "信義_101.jpeg",
-    "信義_新光三越.jpeg"
+    "中原大學_室設.jpg",
+    "中原大學_怪鳥.jpg",
+    "中原大學_莊敬樓.jpg",
+    "信義_101.jpg",
+    "信義_新光三越.jpg",
+    "內壢_火車站.jpg",
+    "內壢火車站_天橋.jpg",
+    "四四南村_仰角.jpg",
+    "四四南村_店家.jpg"
   ];
 
   let currentIndex = 0;
@@ -59,8 +61,68 @@ document.addEventListener("DOMContentLoaded", () => {
   // --- Lightbox Logic ---
   const updateLightboxImage = () => {
     const imgName = images[currentIndex];
-    lightboxImg.src = imagePath + imgName;
+    const fullPath = imagePath + imgName;
+    
+    // Reset state
+    lightboxImg.src = fullPath;
     lightboxCaption.textContent = getCaption(imgName);
+    lightboxMetadata.innerHTML = '<div class="metadata-loading">Loading metadata...</div>';
+    
+    // Check for file protocol restriction
+    if (window.location.protocol === 'file:') {
+      lightboxMetadata.innerHTML = '<div class="metadata-error">Metadata unavailable in local file mode (CORS restriction). Please use a local server.</div>';
+      return;
+    }
+
+    // Use a new image object for EXIF parsing to avoid caching issues on the DOM element
+    const tempImg = new Image();
+    tempImg.src = fullPath; 
+    // Add crossOrigin attribute if images are from external/CDN (not the case here, but good practice)
+    // tempImg.crossOrigin = "Anonymous"; 
+
+    tempImg.onload = function() {
+      // EXIF.getData needs the image to be loaded
+      EXIF.getData(this, function() {
+        const make = EXIF.getTag(this, "Make");
+        const model = EXIF.getTag(this, "Model");
+        const fNumberTag = EXIF.getTag(this, "FNumber");
+        const exposureTime = EXIF.getTag(this, "ExposureTime");
+        const iso = EXIF.getTag(this, "ISOSpeedRatings");
+        const focalLengthTag = EXIF.getTag(this, "FocalLength");
+
+        // Check if we found ANY relevant data
+        if (!make && !model && !fNumberTag && !exposureTime && !iso && !focalLengthTag) {
+           lightboxMetadata.innerHTML = '<div class="metadata-empty">No EXIF data found</div>';
+           return;
+        }
+
+        const fNumber = fNumberTag ? `f/${parseFloat(fNumberTag).toFixed(1)}` : "--";
+        const focalLength = focalLengthTag ? `${parseFloat(focalLengthTag).toFixed(0)}mm` : "--";
+
+        let shutterSpeed = "--";
+        if (exposureTime) {
+          if (exposureTime >= 1) {
+            shutterSpeed = `${exposureTime}s`;
+          } else {
+            shutterSpeed = `1/${Math.round(1 / exposureTime)}s`;
+          }
+        }
+
+        lightboxMetadata.innerHTML = `
+          <div class="metadata-grid">
+            <div class="metadata-item"><span class="label">Camera</span><span class="value">${make || ''} ${model || ''}</span></div>
+            <div class="metadata-item"><span class="label">Aperture</span><span class="value">${fNumber}</span></div>
+            <div class="metadata-item"><span class="label">Shutter</span><span class="value">${shutterSpeed}</span></div>
+            <div class="metadata-item"><span class="label">ISO</span><span class="value">${iso || "--"}</span></div>
+            <div class="metadata-item"><span class="label">Focal</span><span class="value">${focalLength}</span></div>
+          </div>
+        `;
+      });
+    };
+
+    tempImg.onerror = function() {
+        lightboxMetadata.innerHTML = '<div class="metadata-error">Failed to load image data</div>';
+    };
   };
 
   const openLightbox = (index) => {
