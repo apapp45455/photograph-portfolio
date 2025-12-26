@@ -53,6 +53,7 @@ async function processImage(filePath, fileName) {
         // 1. Generate WebP
         if (!fs.existsSync(webpPath)) {
             await sharp(filePath)
+                .rotate() // <--- Auto-rotate based on EXIF
                 .resize(targetWidth)
                 .webp({ quality: 80 })
                 .toFile(webpPath);
@@ -61,6 +62,7 @@ async function processImage(filePath, fileName) {
         // 2. Generate optimized JPG
         if (!fs.existsSync(jpgPath)) {
             await sharp(filePath)
+                .rotate() // <--- Auto-rotate based on EXIF
                 .resize(targetWidth)
                 .jpeg({ quality: 80, mozjpeg: true })
                 .toFile(jpgPath);
