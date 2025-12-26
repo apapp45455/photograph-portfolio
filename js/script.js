@@ -12,7 +12,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const imagePath = "images/";
   const images = [
     "中原大學_室設.jpg",
-    "中原大學_怪鳥.jpg",
+    "中原大學_黑冠麻鷺.jpg",
     "中原大學_莊敬樓.jpg",
     "信義_101.jpg",
     "信義_新光三越.jpg",
