@@ -11,18 +11,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // --- Configuration ---
   const imagePath = "images/";
-  const images = [
-    "中原大學_室設.jpg",
-    "中原大學_黑冠麻鷺.jpg",
-    "中原大學_莊敬樓.jpg",
-    "信義_101.jpg",
-    "信義_新光三越.jpg",
-    "內壢_火車站.jpg",
-    "內壢火車站_天橋.jpg",
-    "四四南村_仰角.jpg",
-    "四四南村_店家.jpg"
-  ];
-
+  let images = []; // Will be populated from JSON
   let currentIndex = 0;
 
   // --- Helpers ---
@@ -32,8 +21,23 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   // --- Initialization ---
-  const initGallery = () => {
-    images.forEach((imgName, index) => {
+  const initGallery = async () => {
+    try {
+      const response = await fetch('js/gallery-data.json');
+      if (!response.ok) throw new Error('Failed to load gallery data');
+      
+      const data = await response.json();
+      images = data.map(item => item.filename); // Extract filenames for existing logic
+
+      renderGallery(images);
+    } catch (error) {
+      console.error('Error initializing gallery:', error);
+      gallery.innerHTML = '<p class="error-msg">Failed to load images. Please try again later.</p>';
+    }
+  };
+
+  const renderGallery = (imageList) => {
+    imageList.forEach((imgName, index) => {
       // Create wrapper
       const wrapper = document.createElement("div");
       wrapper.classList.add("gallery-item-wrapper");
