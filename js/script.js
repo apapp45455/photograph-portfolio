@@ -2,6 +2,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const gallery = document.getElementById("gallery-container");
   const lightbox = document.getElementById("lightbox");
   const lightboxImg = document.getElementById("lightbox-img");
+  const lightboxInfo = document.querySelector(".lightbox-info");
   const lightboxCaption = document.getElementById("lightbox-caption");
   const lightboxMetadata = document.getElementById("lightbox-metadata");
   const closeBtn = document.querySelector(".close-btn");
@@ -67,6 +68,13 @@ document.addEventListener("DOMContentLoaded", () => {
     lightboxImg.src = fullPath;
     lightboxCaption.textContent = getCaption(imgName);
     lightboxMetadata.innerHTML = '<div class="metadata-loading">Loading metadata...</div>';
+
+    // Trigger fade-in animation
+    [lightboxImg, lightboxInfo].forEach(el => {
+      el.classList.remove("fade-in");
+      void el.offsetWidth; // Trigger reflow
+      el.classList.add("fade-in");
+    });
     
     // Check for file protocol restriction
     if (window.location.protocol === 'file:') {

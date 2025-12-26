@@ -206,6 +206,24 @@ footer {
   object-fit: contain;
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
   border-radius: 4px;
+  /* Ensure opacity starts at 1, JS will toggle class to animate */
+}
+
+/* Animation class for fading in */
+.lightbox-img.fade-in,
+.lightbox-info.fade-in {
+  animation: fadeEffect 0.5s ease-out forwards;
+}
+
+@keyframes fadeEffect {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 .lightbox-info {
