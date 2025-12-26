@@ -11,12 +11,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // --- Configuration ---
   const imagePath = "images/";
-  let images = []; // Will be populated from JSON
+  let galleryData = []; // Store full data objects
+  let images = []; // Keep for index mapping
   let currentIndex = 0;
 
   // --- Helpers ---
   const getCaption = (filename) => {
-    // Remove extension and replace underscores with spaces
     return filename.replace(/\.[^/.]+$/, "").replace(/_/g, " ");
   };
 
@@ -26,34 +26,60 @@ document.addEventListener("DOMContentLoaded", () => {
       const response = await fetch('js/gallery-data.json');
       if (!response.ok) throw new Error('Failed to load gallery data');
       
-      const data = await response.json();
-      images = data.map(item => item.filename); // Extract filenames for existing logic
+      galleryData = await response.json();
+      images = galleryData.map(item => item.filename); // Keep for legacy index logic
 
-      renderGallery(images);
+      renderGallery(galleryData);
     } catch (error) {
       console.error('Error initializing gallery:', error);
       gallery.innerHTML = '<p class="error-msg">Failed to load images. Please try again later.</p>';
     }
   };
 
-  const renderGallery = (imageList) => {
-    imageList.forEach((imgName, index) => {
+  const renderGallery = (dataList) => {
+    dataList.forEach((item, index) => {
       // Create wrapper
       const wrapper = document.createElement("div");
       wrapper.classList.add("gallery-item-wrapper");
 
-      const img = document.createElement("img");
-      img.src = imagePath + imgName;
-      img.alt = getCaption(imgName);
-      img.classList.add("gallery-item");
-      img.loading = "lazy"; // Native lazy loading
+      // Construct Picture Element for Responsive + WebP
+      const picture = document.createElement("picture");
+      
+      // 1. WebP Source (Responsive)
+      const sourceWebp = document.createElement("source");
+      sourceWebp.type = "image/webp";
+      sourceWebp.sizes = "(max-width: 600px) 100vw, (max-width: 1024px) 50vw, 33vw";
+      sourceWebp.srcset = `
+        ${item.versions.thumb.webp} 400w,
+        ${item.versions.medium.webp} 1080w
+      `;
 
-      // Fade in when loaded
+      // 2. JPG Source (Responsive Fallback)
+      const sourceJpg = document.createElement("source");
+      sourceJpg.type = "image/jpeg";
+      sourceJpg.sizes = "(max-width: 600px) 100vw, (max-width: 1024px) 50vw, 33vw";
+      sourceJpg.srcset = `
+        ${item.versions.thumb.jpg} 400w,
+        ${item.versions.medium.jpg} 1080w
+      `;
+
+      // 3. Img Element (Default/Fallback)
+      const img = document.createElement("img");
+      img.src = item.versions.thumb.jpg; // Load small one initially
+      img.alt = getCaption(item.filename);
+      img.classList.add("gallery-item");
+      img.loading = "lazy";
+      img.width = item.width;   // Helps layout stability
+      img.height = item.height; // Helps layout stability
+
       img.onload = () => {
         img.classList.add("loaded");
       };
 
-      wrapper.appendChild(img);
+      picture.appendChild(sourceWebp);
+      picture.appendChild(sourceJpg);
+      picture.appendChild(img);
+      wrapper.appendChild(picture);
       gallery.appendChild(wrapper);
 
       // Click event
@@ -65,12 +91,17 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // --- Lightbox Logic ---
   const updateLightboxImage = () => {
-    const imgName = images[currentIndex];
-    const fullPath = imagePath + imgName;
+    const item = galleryData[currentIndex];
+    // Prefer Large WebP -> Large JPG -> Original
+    // For simple <img> src, we can't force WebP unless browser supports it. 
+    // But most do. Let's use the Large JPG for maximum compatibility in lightbox <img> tag, 
+    // or we could replace lightbox <img> with <picture> too. 
+    // For now, let's use the High-Quality Large JPG for safety and quality.
+    const fullPath = item.versions.large.jpg || item.original; 
     
     // Reset state
     lightboxImg.src = fullPath;
-    lightboxCaption.textContent = getCaption(imgName);
+    lightboxCaption.textContent = getCaption(item.filename);
     lightboxMetadata.innerHTML = '<div class="metadata-loading">Loading metadata...</div>';
 
     // Trigger fade-in animation
@@ -80,29 +111,25 @@ document.addEventListener("DOMContentLoaded", () => {
       el.classList.add("fade-in");
     });
     
-    // Check for file protocol restriction
     if (window.location.protocol === 'file:') {
-      lightboxMetadata.innerHTML = '<div class="metadata-error">Metadata unavailable in local file mode (CORS restriction). Please use a local server.</div>';
+      lightboxMetadata.innerHTML = '<div class="metadata-error">Metadata unavailable in local file mode.</div>';
       return;
     }
 
-    // Use a new image object for EXIF parsing to avoid caching issues on the DOM element
+    // EXIF Logic (Loads the ORIGINAL file for metadata, as optimized ones usually strip it)
     const tempImg = new Image();
-    tempImg.src = fullPath; 
-    // Add crossOrigin attribute if images are from external/CDN (not the case here, but good practice)
-    // tempImg.crossOrigin = "Anonymous"; 
+    tempImg.src = item.original; // Read EXIF from original source file
 
     tempImg.onload = function() {
-      // EXIF.getData needs the image to be loaded
       EXIF.getData(this, function() {
         const make = EXIF.getTag(this, "Make");
+        // ... (rest of existing EXIF logic)
         const model = EXIF.getTag(this, "Model");
         const fNumberTag = EXIF.getTag(this, "FNumber");
         const exposureTime = EXIF.getTag(this, "ExposureTime");
         const iso = EXIF.getTag(this, "ISOSpeedRatings");
         const focalLengthTag = EXIF.getTag(this, "FocalLength");
 
-        // Check if we found ANY relevant data
         if (!make && !model && !fNumberTag && !exposureTime && !iso && !focalLengthTag) {
            lightboxMetadata.innerHTML = '<div class="metadata-empty">No EXIF data found</div>';
            return;
@@ -131,7 +158,7 @@ document.addEventListener("DOMContentLoaded", () => {
         `;
       });
     };
-
+    
     tempImg.onerror = function() {
         lightboxMetadata.innerHTML = '<div class="metadata-error">Failed to load image data</div>';
     };

@@ -1,54 +1,216 @@
 [
   {
     "filename": "中原大學_室設.jpg",
+    "original": "images/中原大學_室設.jpg",
+    "versions": {
+      "thumb": {
+        "jpg": "images/optimized/中原大學_室設-thumb.jpg",
+        "webp": "images/optimized/中原大學_室設-thumb.webp",
+        "width": 400
+      },
+      "medium": {
+        "jpg": "images/optimized/中原大學_室設-medium.jpg",
+        "webp": "images/optimized/中原大學_室設-medium.webp",
+        "width": 1080
+      },
+      "large": {
+        "jpg": "images/optimized/中原大學_室設-large.jpg",
+        "webp": "images/optimized/中原大學_室設-large.webp",
+        "width": 1920
+      }
+    },
     "width": 6000,
     "height": 4000,
     "aspectRatio": 1.5
   },
   {
     "filename": "中原大學_莊敬樓.jpg",
+    "original": "images/中原大學_莊敬樓.jpg",
+    "versions": {
+      "thumb": {
+        "jpg": "images/optimized/中原大學_莊敬樓-thumb.jpg",
+        "webp": "images/optimized/中原大學_莊敬樓-thumb.webp",
+        "width": 400
+      },
+      "medium": {
+        "jpg": "images/optimized/中原大學_莊敬樓-medium.jpg",
+        "webp": "images/optimized/中原大學_莊敬樓-medium.webp",
+        "width": 1080
+      },
+      "large": {
+        "jpg": "images/optimized/中原大學_莊敬樓-large.jpg",
+        "webp": "images/optimized/中原大學_莊敬樓-large.webp",
+        "width": 1920
+      }
+    },
     "width": 6000,
     "height": 4000,
     "aspectRatio": 1.5
   },
   {
     "filename": "中原大學_黑冠麻鷺.jpg",
+    "original": "images/中原大學_黑冠麻鷺.jpg",
+    "versions": {
+      "thumb": {
+        "jpg": "images/optimized/中原大學_黑冠麻鷺-thumb.jpg",
+        "webp": "images/optimized/中原大學_黑冠麻鷺-thumb.webp",
+        "width": 400
+      },
+      "medium": {
+        "jpg": "images/optimized/中原大學_黑冠麻鷺-medium.jpg",
+        "webp": "images/optimized/中原大學_黑冠麻鷺-medium.webp",
+        "width": 1080
+      },
+      "large": {
+        "jpg": "images/optimized/中原大學_黑冠麻鷺-large.jpg",
+        "webp": "images/optimized/中原大學_黑冠麻鷺-large.webp",
+        "width": 1920
+      }
+    },
     "width": 6000,
     "height": 4000,
     "aspectRatio": 1.5
   },
   {
     "filename": "信義_101.jpg",
+    "original": "images/信義_101.jpg",
+    "versions": {
+      "thumb": {
+        "jpg": "images/optimized/信義_101-thumb.jpg",
+        "webp": "images/optimized/信義_101-thumb.webp",
+        "width": 400
+      },
+      "medium": {
+        "jpg": "images/optimized/信義_101-medium.jpg",
+        "webp": "images/optimized/信義_101-medium.webp",
+        "width": 1080
+      },
+      "large": {
+        "jpg": "images/optimized/信義_101-large.jpg",
+        "webp": "images/optimized/信義_101-large.webp",
+        "width": 1920
+      }
+    },
     "width": 4284,
     "height": 5712,
     "aspectRatio": 0.75
   },
   {
     "filename": "信義_新光三越.jpg",
+    "original": "images/信義_新光三越.jpg",
+    "versions": {
+      "thumb": {
+        "jpg": "images/optimized/信義_新光三越-thumb.jpg",
+        "webp": "images/optimized/信義_新光三越-thumb.webp",
+        "width": 400
+      },
+      "medium": {
+        "jpg": "images/optimized/信義_新光三越-medium.jpg",
+        "webp": "images/optimized/信義_新光三越-medium.webp",
+        "width": 1080
+      },
+      "large": {
+        "jpg": "images/optimized/信義_新光三越-large.jpg",
+        "webp": "images/optimized/信義_新光三越-large.webp",
+        "width": 1920
+      }
+    },
     "width": 5712,
     "height": 4284,
     "aspectRatio": 1.3333333333333333
   },
   {
     "filename": "內壢_火車站.jpg",
+    "original": "images/內壢_火車站.jpg",
+    "versions": {
+      "thumb": {
+        "jpg": "images/optimized/內壢_火車站-thumb.jpg",
+        "webp": "images/optimized/內壢_火車站-thumb.webp",
+        "width": 400
+      },
+      "medium": {
+        "jpg": "images/optimized/內壢_火車站-medium.jpg",
+        "webp": "images/optimized/內壢_火車站-medium.webp",
+        "width": 1080
+      },
+      "large": {
+        "jpg": "images/optimized/內壢_火車站-large.jpg",
+        "webp": "images/optimized/內壢_火車站-large.webp",
+        "width": 1920
+      }
+    },
     "width": 3024,
     "height": 4032,
     "aspectRatio": 0.75
   },
   {
     "filename": "內壢火車站_天橋.jpg",
+    "original": "images/內壢火車站_天橋.jpg",
+    "versions": {
+      "thumb": {
+        "jpg": "images/optimized/內壢火車站_天橋-thumb.jpg",
+        "webp": "images/optimized/內壢火車站_天橋-thumb.webp",
+        "width": 400
+      },
+      "medium": {
+        "jpg": "images/optimized/內壢火車站_天橋-medium.jpg",
+        "webp": "images/optimized/內壢火車站_天橋-medium.webp",
+        "width": 1080
+      },
+      "large": {
+        "jpg": "images/optimized/內壢火車站_天橋-large.jpg",
+        "webp": "images/optimized/內壢火車站_天橋-large.webp",
+        "width": 1920
+      }
+    },
     "width": 5328,
     "height": 4000,
     "aspectRatio": 1.332
   },
   {
     "filename": "四四南村_仰角.jpg",
+    "original": "images/四四南村_仰角.jpg",
+    "versions": {
+      "thumb": {
+        "jpg": "images/optimized/四四南村_仰角-thumb.jpg",
+        "webp": "images/optimized/四四南村_仰角-thumb.webp",
+        "width": 400
+      },
+      "medium": {
+        "jpg": "images/optimized/四四南村_仰角-medium.jpg",
+        "webp": "images/optimized/四四南村_仰角-medium.webp",
+        "width": 1080
+      },
+      "large": {
+        "jpg": "images/optimized/四四南村_仰角-large.jpg",
+        "webp": "images/optimized/四四南村_仰角-large.webp",
+        "width": 1920
+      }
+    },
     "width": 6000,
     "height": 4000,
     "aspectRatio": 1.5
   },
   {
     "filename": "四四南村_店家.jpg",
+    "original": "images/四四南村_店家.jpg",
+    "versions": {
+      "thumb": {
+        "jpg": "images/optimized/四四南村_店家-thumb.jpg",
+        "webp": "images/optimized/四四南村_店家-thumb.webp",
+        "width": 400
+      },
+      "medium": {
+        "jpg": "images/optimized/四四南村_店家-medium.jpg",
+        "webp": "images/optimized/四四南村_店家-medium.webp",
+        "width": 1080
+      },
+      "large": {
+        "jpg": "images/optimized/四四南村_店家-large.jpg",
+        "webp": "images/optimized/四四南村_店家-large.webp",
+        "width": 1920
+      }
+    },
     "width": 6000,
     "height": 4000,
     "aspectRatio": 1.5
