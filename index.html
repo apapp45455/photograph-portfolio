@@ -20,14 +20,38 @@
     <meta property="og:type" content="website" />
   </head>
   <body>
-    <header>
-      <h1>大衛的攝影網站</h1>
-      <p class="subtitle">Capturing Moments, Creating Memories</p>
+    <!-- Hero Section -->
+    <header class="hero">
+      <div class="hero-content">
+        <h1>David Photography</h1>
+        <p class="subtitle">Capturing Moments, Creating Memories</p>
+      </div>
     </header>
     <main>
       <div class="gallery-container" id="gallery-container">
         <!-- 圖片將由 JavaScript 動態載入 -->
       </div>
+      
+      <!-- About Section -->
+      <section id="about" class="about-section">
+        <div class="about-content">
+          <h2>About Me</h2>
+          <img src="images/profile.jpg" alt="David" class="about-image" onerror="this.style.display='none'">
+          <p>哈囉，我是大衛，是個業餘攝影師，平時天氣好喜歡拿著相機四處拍照。</p>
+        </div>
+      </section>
+
+      <!-- Gear Section -->
+      <section id="gear" class="gear-section">
+        <div class="gear-content">
+          <h2>Gear</h2>
+          <ul class="gear-list">
+            <li>Canon R50</li>
+            <li>iPhone 17 pro</li>
+            <li>Canon pixpro C1</li>
+          </ul>
+        </div>
+      </section>
     </main>
     <footer>
       <div class="contact-info">
