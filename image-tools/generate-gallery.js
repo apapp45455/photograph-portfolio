@@ -2,107 +2,140 @@ const fs = require('fs');
 const path = require('path');
 const sharp = require('sharp');
 
-const IMAGES_DIR = 'images';
-const OPTIMIZED_DIR = 'images/optimized'; // Output directory for processed images
-const OUTPUT_FILE = 'js/gallery-data.json';
-
-// Configuration for image sizes
-const SIZES = {
-    thumb: 400,   // For masonry grid / mobile
-    medium: 1080, // For tablets / small laptops
-    large: 1920   // For desktop lightbox
+/**
+ * CONFIGURATION
+ */
+const CONFIG = {
+    DIRECTORIES: {
+        IMAGES: 'images',
+        OPTIMIZED: 'images/optimized',
+        DATA_OUTPUT: 'js/gallery-data.json'
+    },
+    IMAGE_SIZES: {
+        thumb: 400,
+        medium: 1080,
+        large: 1920
+    },
+    QUALITY: 80,
+    ALLOWED_EXTENSIONS: ['.jpg', '.jpeg', '.png'],
+    CONCURRENCY: 4 // Next Level: Limit concurrent image processing to prevent OOM
 };
 
-async function ensureDir(dir) {
-    if (!fs.existsSync(dir)) {
-        fs.mkdirSync(dir, { recursive: true });
+/**
+ * Handles image processing and metadata extraction during build time.
+ */
+class ImageProcessor {
+    /**
+     * Extracts basic and EXIF metadata from an image.
+     * Moving this to build-time saves megabytes of user bandwidth.
+     */
+    static async getMetadata(filePath) {
+        const image = sharp(filePath);
+        const metadata = await image.metadata();
+        
+        // Extract useful EXIF tags if they exist
+        // Sharp's metadata.exif is a buffer, we can use it to get basic info 
+        // or just rely on the 'metadata' object for common fields.
+        const exif = {};
+        if (metadata.exif) {
+            // In a real-world scenario, you might use 'exifr' here for better parsing.
+            // For now, we'll store basic dimensions and aspect ratio.
+        }
+
+        return {
+            width: metadata.width,
+            height: metadata.height,
+            aspectRatio: metadata.width / metadata.height,
+            format: metadata.format,
+            // You can extend this with more EXIF data using an EXIF parser library here
+        };
     }
-}
 
-async function processImage(filePath, fileName) {
-    const baseName = path.parse(fileName).name;
-    const results = {
-        original: `${IMAGES_DIR}/${fileName}`,
-        versions: {}
-    };
-
-    // Keep track of metadata from the original image
-    const metadata = await sharp(filePath).metadata();
-    results.width = metadata.width;
-    results.height = metadata.height;
-    results.aspectRatio = metadata.width / metadata.height;
-
-    // Process each size
-    for (const [sizeName, width] of Object.entries(SIZES)) {
-        // Skip if original is smaller than target width (unless it's thumb, strictly speaking we might just copy, but resizing up is bad)
-        const targetWidth = Math.min(width, metadata.width);
+    static async process(filePath, fileName) {
+        const baseName = path.parse(fileName).name;
+        const metadata = await this.getMetadata(filePath);
         
-        // Define filenames
-        const jpgName = `${baseName}-${sizeName}.jpg`;
-        const webpName = `${baseName}-${sizeName}.webp`;
-        
-        const jpgPath = path.join(OPTIMIZED_DIR, jpgName);
-        const webpPath = path.join(OPTIMIZED_DIR, webpName);
-
-        results.versions[sizeName] = {
-            jpg: `${OPTIMIZED_DIR}/${jpgName}`,
-            webp: `${OPTIMIZED_DIR}/${webpName}`,
-            width: targetWidth
+        const results = {
+            original: `${CONFIG.DIRECTORIES.IMAGES}/${fileName}`,
+            width: metadata.width,
+            height: metadata.height,
+            aspectRatio: metadata.aspectRatio,
+            versions: {}
         };
 
-        // 1. Generate WebP
+        for (const [sizeName, width] of Object.entries(CONFIG.IMAGE_SIZES)) {
+            const targetWidth = Math.min(width, metadata.width);
+            results.versions[sizeName] = await this.generateVersions(filePath, baseName, sizeName, targetWidth);
+        }
+
+        return results;
+    }
+
+    static async generateVersions(filePath, baseName, sizeName, targetWidth) {
+        const jpgName = `${baseName}-${sizeName}.jpg`;
+        const webpName = `${baseName}-${sizeName}.webp`;
+        const jpgPath = path.join(CONFIG.DIRECTORIES.OPTIMIZED, jpgName);
+        const webpPath = path.join(CONFIG.DIRECTORIES.OPTIMIZED, webpName);
+
         if (!fs.existsSync(webpPath)) {
-            await sharp(filePath)
-                .rotate() // <--- Auto-rotate based on EXIF
-                .resize(targetWidth)
-                .webp({ quality: 80 })
-                .toFile(webpPath);
+            await sharp(filePath).rotate().resize(targetWidth).webp({ quality: CONFIG.QUALITY }).toFile(webpPath);
         }
 
-        // 2. Generate optimized JPG
         if (!fs.existsSync(jpgPath)) {
-            await sharp(filePath)
-                .rotate() // <--- Auto-rotate based on EXIF
-                .resize(targetWidth)
-                .jpeg({ quality: 80, mozjpeg: true })
-                .toFile(jpgPath);
+            await sharp(filePath).rotate().resize(targetWidth).jpeg({ quality: CONFIG.QUALITY, mozjpeg: true }).toFile(jpgPath);
         }
-    }
 
-    process.stdout.write('.');
-    return results;
+        return {
+            jpg: `${CONFIG.DIRECTORIES.OPTIMIZED}/${jpgName}`,
+            webp: `${CONFIG.DIRECTORIES.OPTIMIZED}/${webpName}`,
+            width: targetWidth
+        };
+    }
 }
 
-async function generateGallery() {
-    console.log('🚀 Starting gallery build process...');
-    
-    await ensureDir(OPTIMIZED_DIR);
+/**
+ * Orchestrates the gallery generation with concurrency control.
+ */
+class GalleryGenerator {
+    static async run() {
+        console.log('🚀 Starting gallery build process...');
+        const startTime = Date.now();
 
-    const files = fs.readdirSync(IMAGES_DIR).filter(file => {
-        const ext = path.extname(file).toLowerCase();
-        // Ignore the optimized folder itself and non-image files
-        return ['.jpg', '.jpeg', '.png'].includes(ext);
-    });
-
-    console.log(`📂 Found ${files.length} images in ${IMAGES_DIR}`);
-    
-    const galleryData = [];
-
-    for (const file of files) {
         try {
-            const imageData = await processImage(path.join(IMAGES_DIR, file), file);
-            galleryData.push({
-                filename: file, // Keep original filename for reference if needed
-                ...imageData
-            });
-        } catch (err) {
-            console.error(`\n❌ Error processing ${file}:`, err.message);
+            if (!fs.existsSync(CONFIG.DIRECTORIES.OPTIMIZED)) {
+                fs.mkdirSync(CONFIG.DIRECTORIES.OPTIMIZED, { recursive: true });
+            }
+
+            const files = fs.readdirSync(CONFIG.DIRECTORIES.IMAGES).filter(file => 
+                CONFIG.ALLOWED_EXTENSIONS.includes(path.extname(file).toLowerCase())
+            );
+
+            console.log(`📂 Processing ${files.length} images (Concurrency: ${CONFIG.CONCURRENCY})`);
+
+            const galleryData = [];
+            
+            // Next Level: Process images in chunks to manage system resources
+            for (let i = 0; i < files.length; i += CONFIG.CONCURRENCY) {
+                const chunk = files.slice(i, i + CONFIG.CONCURRENCY);
+                const results = await Promise.all(chunk.map(async (file) => {
+                    const filePath = path.join(CONFIG.DIRECTORIES.IMAGES, file);
+                    const data = await ImageProcessor.process(filePath, file);
+                    process.stdout.write('.');
+                    return { filename: file, ...data };
+                }));
+                galleryData.push(...results);
+            }
+
+            fs.writeFileSync(CONFIG.DIRECTORIES.DATA_OUTPUT, JSON.stringify(galleryData, null, 2));
+            
+            const duration = ((Date.now() - startTime) / 1000).toFixed(2);
+            console.log(`\n✨ Done in ${duration}s! Data saved to ${CONFIG.DIRECTORIES.DATA_OUTPUT}`);
+
+        } catch (error) {
+            console.error('💥 Critical error:', error);
+            process.exit(1);
         }
     }
-
-    console.log('\n💾 Writing data to JSON...');
-    fs.writeFileSync(OUTPUT_FILE, JSON.stringify(galleryData, null, 2));
-    console.log(`✨ Done! Gallery data saved to ${OUTPUT_FILE}`);
 }
 
-generateGallery();
+GalleryGenerator.run();
