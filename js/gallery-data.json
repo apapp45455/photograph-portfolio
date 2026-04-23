@@ -1,5 +1,29 @@
 [
   {
+    "filename": "Canon R50特寫.jpg",
+    "original": "images/Canon R50特寫.jpg",
+    "width": 5712,
+    "height": 4284,
+    "aspectRatio": 1.3333333333333333,
+    "versions": {
+      "thumb": {
+        "jpg": "images/optimized/Canon R50特寫-thumb.jpg",
+        "webp": "images/optimized/Canon R50特寫-thumb.webp",
+        "width": 400
+      },
+      "medium": {
+        "jpg": "images/optimized/Canon R50特寫-medium.jpg",
+        "webp": "images/optimized/Canon R50特寫-medium.webp",
+        "width": 1080
+      },
+      "large": {
+        "jpg": "images/optimized/Canon R50特寫-large.jpg",
+        "webp": "images/optimized/Canon R50特寫-large.webp",
+        "width": 1920
+      }
+    }
+  },
+  {
     "filename": "中原大學_室設.jpg",
     "original": "images/中原大學_室設.jpg",
     "width": 6000,
@@ -211,6 +235,78 @@
       "large": {
         "jpg": "images/optimized/四四南村_店家-large.jpg",
         "webp": "images/optimized/四四南村_店家-large.webp",
+        "width": 1920
+      }
+    }
+  },
+  {
+    "filename": "新屋_永安漁港.jpg",
+    "original": "images/新屋_永安漁港.jpg",
+    "width": 4898,
+    "height": 3265,
+    "aspectRatio": 1.5001531393568146,
+    "versions": {
+      "thumb": {
+        "jpg": "images/optimized/新屋_永安漁港-thumb.jpg",
+        "webp": "images/optimized/新屋_永安漁港-thumb.webp",
+        "width": 400
+      },
+      "medium": {
+        "jpg": "images/optimized/新屋_永安漁港-medium.jpg",
+        "webp": "images/optimized/新屋_永安漁港-medium.webp",
+        "width": 1080
+      },
+      "large": {
+        "jpg": "images/optimized/新屋_永安漁港-large.jpg",
+        "webp": "images/optimized/新屋_永安漁港-large.webp",
+        "width": 1920
+      }
+    }
+  },
+  {
+    "filename": "桃園_麵屋虎千代.jpg",
+    "original": "images/桃園_麵屋虎千代.jpg",
+    "width": 4160,
+    "height": 3120,
+    "aspectRatio": 1.3333333333333333,
+    "versions": {
+      "thumb": {
+        "jpg": "images/optimized/桃園_麵屋虎千代-thumb.jpg",
+        "webp": "images/optimized/桃園_麵屋虎千代-thumb.webp",
+        "width": 400
+      },
+      "medium": {
+        "jpg": "images/optimized/桃園_麵屋虎千代-medium.jpg",
+        "webp": "images/optimized/桃園_麵屋虎千代-medium.webp",
+        "width": 1080
+      },
+      "large": {
+        "jpg": "images/optimized/桃園_麵屋虎千代-large.jpg",
+        "webp": "images/optimized/桃園_麵屋虎千代-large.webp",
+        "width": 1920
+      }
+    }
+  },
+  {
+    "filename": "浮州.jpg",
+    "original": "images/浮州.jpg",
+    "width": 4160,
+    "height": 3120,
+    "aspectRatio": 1.3333333333333333,
+    "versions": {
+      "thumb": {
+        "jpg": "images/optimized/浮州-thumb.jpg",
+        "webp": "images/optimized/浮州-thumb.webp",
+        "width": 400
+      },
+      "medium": {
+        "jpg": "images/optimized/浮州-medium.jpg",
+        "webp": "images/optimized/浮州-medium.webp",
+        "width": 1080
+      },
+      "large": {
+        "jpg": "images/optimized/浮州-large.jpg",
+        "webp": "images/optimized/浮州-large.webp",
         "width": 1920
       }
     }
