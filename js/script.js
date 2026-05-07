@@ -110,6 +110,7 @@ class Lightbox {
   constructor(galleryData) {
     this.galleryData = galleryData;
     this.currentIndex = 0;
+    this.pendingImageRequestId = 0;
 
     this.elements = {
       container: document.querySelector(CONFIG.SELECTORS.LIGHTBOX),
@@ -178,6 +179,11 @@ class Lightbox {
   async updateImage() {
     const item = this.galleryData[this.currentIndex];
     const fullPath = item.versions.large.jpg || item.original;
+    const requestId = ++this.pendingImageRequestId;
+
+    // Reserve layout space before the image/metadata load to prevent CLS.
+    this.applyReservedMediaSize(item);
+    this.setMediaLoadingState(true);
 
     this.elements.img.src = fullPath;
     this.elements.caption.textContent = item.filename.replace(/\.[^/.]+$/, "").replace(/_/g, " ");
@@ -185,10 +191,52 @@ class Lightbox {
 
     this.triggerFadeAnimation();
 
+    await this.waitForImageSettled(requestId);
+
     const metadataHtml = await ExifManager.getFormattedMetadata(item.original);
-    if (this.galleryData[this.currentIndex].original === item.original) {
+    if (requestId === this.pendingImageRequestId && this.galleryData[this.currentIndex].original === item.original) {
       this.elements.metadata.innerHTML = metadataHtml;
     }
+  }
+
+  applyReservedMediaSize(item) {
+    const width = Number(item?.width);
+    const height = Number(item?.height);
+
+    if (Number.isFinite(width) && width > 0 && Number.isFinite(height) && height > 0) {
+      this.elements.img.width = width;
+      this.elements.img.height = height;
+      this.elements.img.style.aspectRatio = `${width} / ${height}`;
+      return;
+    }
+
+    const aspectRatio = Number(item?.aspectRatio);
+    if (Number.isFinite(aspectRatio) && aspectRatio > 0) {
+      this.elements.img.style.aspectRatio = `${aspectRatio} / 1`;
+    } else {
+      // Fallback to a sane default to avoid a 0-sized box before load.
+      this.elements.img.style.aspectRatio = "3 / 2";
+    }
+  }
+
+  setMediaLoadingState(isLoading) {
+    this.elements.img.classList.toggle("is-loading", isLoading);
+  }
+
+  waitForImageSettled(requestId) {
+    return new Promise((resolve) => {
+      const img = this.elements.img;
+
+      const done = () => {
+        if (requestId !== this.pendingImageRequestId) return resolve();
+        this.setMediaLoadingState(false);
+        resolve();
+      };
+
+      if (img.complete && img.naturalWidth > 0) return done();
+      img.addEventListener("load", done, { once: true });
+      img.addEventListener("error", done, { once: true });
+    });
   }
 
   triggerFadeAnimation() {
