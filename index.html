@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@200;300;400;500;700&family=Parisienne&family=Cormorant+Garamond:ital,wght@0,400;0,500;1,400&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@200;300;400;500;700&family=Cormorant+Garamond:ital,wght@0,400;0,500;1,400&display=swap"
       rel="stylesheet"
     />
     <link rel="stylesheet" href="style.css" />
@@ -23,17 +23,15 @@
     <!-- End Cloudflare Web Analytics -->
   </head>
   <body>
-    <!-- Hero Section -->
-    <header class="hero">
-      <div class="hero-content">
-        <h1>David Photography</h1>
-        <p class="subtitle">Capturing Moments, Creating Memories</p>
-      </div>
-      <a href="#gallery-container" class="scroll-down" aria-label="Scroll down to gallery">
-        <div class="chevron"></div>
-        <div class="chevron"></div>
-        <div class="chevron"></div>
-      </a>
+    <!-- Site Header -->
+    <header class="site-header">
+      <a href="#gallery-container" class="site-title">David<span>Photography</span></a>
+      <nav class="site-nav">
+        <a href="#gallery-container">Gallery</a>
+        <a href="#about">About</a>
+        <a href="#gear">Gear</a>
+        <a href="#contact">Contact</a>
+      </nav>
     </header>
     <main>
       <div class="gallery-container" id="gallery-container">
@@ -61,7 +59,7 @@
         </div>
       </section>
     </main>
-    <footer>
+    <footer id="contact">
       <div class="contact-info">
         <p class="contact-header">Contact Me</p>
         <p>Phone: (+886) 0968112709</p>
@@ -94,6 +92,6 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/exif-js"></script>
-    <script src="js/script.js"></script>
+    <script type="module" src="js/main.js"></script>
   </body>
 </html>

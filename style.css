@@ -7,7 +7,6 @@
   --border-soft: #ece7dd; /* Faint warm divider */
   --accent-color: #b08d4f; /* Antique foil gold (燙金) */
   --accent-soft: #c9b083;
-  --font-script: "Parisienne", "Cormorant Garamond", cursive; /* Fountain-pen script */
   --font-heading: "Cormorant Garamond", "Noto Sans TC", serif;
   --font-body: "Noto Sans TC", "Cormorant Garamond", sans-serif;
   --transition-speed: 0.3s;
@@ -39,116 +38,70 @@ h3 {
   margin: 0;
 }
 
-/* Hero Section */
-.hero {
-  position: relative;
-  height: 100vh;
+/* Site Header — slim editorial band */
+.site-header {
+  position: sticky;
+  top: 0;
+  z-index: 1000;
   display: flex;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 2rem;
+  padding: 1.4rem clamp(1.25rem, 4vw, 3rem);
+  background: rgba(250, 248, 243, 0.92);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.site-title {
+  font-family: var(--font-heading);
+  font-weight: 500;
+  font-size: 1.05rem;
+  text-transform: uppercase;
+  letter-spacing: 0.28em;
   color: var(--text-primary);
-  background: url('images/信義_101.jpg') center/cover no-repeat;
-  margin-bottom: 5rem;
-}
-
-.hero::before {
-  content: '';
-  position: absolute;
-  top: 0; left: 0; right: 0; bottom: 0;
-  /* Soft white wash so gold script stays legible without a heavy dark overlay */
-  background: linear-gradient(
-    180deg,
-    rgba(250, 248, 243, 0.55) 0%,
-    rgba(250, 248, 243, 0.35) 45%,
-    rgba(250, 248, 243, 0.6) 100%
-  );
-  z-index: 1;
-}
-
-.hero-content {
-  position: relative;
-  z-index: 2;
-  animation: fadeDown 1s ease-out;
-  padding: 0 20px;
-}
-
-.hero h1 {
-  font-family: var(--font-script);
-  font-weight: 400;
-  font-size: 6rem;
-  line-height: 1.1;
-  letter-spacing: 1px;
-  color: var(--accent-color);
-  margin-bottom: 0.5rem;
-  text-shadow: 0 1px 12px rgba(255, 255, 255, 0.85);
-}
-
-.subtitle {
-  font-size: 1.15rem;
-  color: var(--text-primary);
-  font-family: var(--font-body);
-  font-weight: 300;
-  letter-spacing: 0.35em;
-  text-indent: 0.35em;
-  text-shadow: 0 1px 8px rgba(255, 255, 255, 0.9);
-}
-
-/* Scroll Down Indicator */
-.scroll-down {
-  position: absolute;
-  bottom: 40px;
-  left: 50%;
-  transform: translateX(-50%);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  z-index: 2;
   text-decoration: none;
-  cursor: pointer;
-  padding: 10px;
+  white-space: nowrap;
 }
 
-.chevron {
-  width: 22px;
-  height: 22px;
-  border-right: 2px solid var(--accent-color);
-  border-bottom: 2px solid var(--accent-color);
-  transform: rotate(45deg);
-  animation: bounce 2s infinite;
-  margin-top: -12px;
-  opacity: 0;
+.site-title span {
+  color: var(--accent-color);
+  margin-left: 0.6em;
 }
 
-.chevron:nth-child(1) {
-  animation-delay: 0s;
+.site-nav {
+  display: flex;
+  gap: clamp(1rem, 3vw, 2.2rem);
 }
 
-.chevron:nth-child(2) {
-  animation-delay: 0.15s;
+.site-nav a {
+  font-family: var(--font-body);
+  font-size: 0.78rem;
+  font-weight: 400;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: var(--text-secondary);
+  text-decoration: none;
+  transition: color var(--transition-speed) ease;
 }
 
-.chevron:nth-child(3) {
-  animation-delay: 0.3s;
+.site-nav a:hover {
+  color: var(--accent-color);
 }
 
-@keyframes bounce {
-  0% {
-    opacity: 0;
-    transform: rotate(45deg) translate(-10px, -10px);
-  }
-  50% {
-    opacity: 1;
-  }
-  100% {
-    opacity: 0;
-    transform: rotate(45deg) translate(10px, 10px);
+@media (max-width: 600px) {
+  .site-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.6rem;
+    padding-top: 1rem;
+    padding-bottom: 1rem;
   }
 }
 
 /* Main Layout */
 main {
-  padding: 20px;
+  padding: 3rem 20px 20px;
   max-width: 1400px;
   margin: 0 auto;
 }
@@ -203,17 +156,6 @@ main {
   }
 }
 
-@keyframes fadeDown {
-  from {
-    opacity: 0;
-    transform: translateY(-20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
 /* Responsive Masonry */
 @media (max-width: 1024px) {
   .gallery-container {
@@ -224,9 +166,6 @@ main {
 @media (max-width: 600px) {
   .gallery-container {
     column-count: 1;
-  }
-  header h1 {
-    font-size: 4rem;
   }
 }
 
@@ -241,12 +180,22 @@ main {
 }
 
 .about-section h2, .gear-section h2 {
-  font-family: var(--font-script);
-  font-weight: 400;
-  font-size: 3.4rem;
+  font-family: var(--font-heading);
+  font-weight: 500;
+  font-size: 1.35rem;
+  text-transform: uppercase;
+  letter-spacing: 0.32em;
   margin-bottom: 2rem;
-  color: var(--accent-color);
-  letter-spacing: 1px;
+  color: var(--text-primary);
+}
+
+.about-section h2::after, .gear-section h2::after {
+  content: '';
+  display: block;
+  width: 2.2rem;
+  height: 1px;
+  background: var(--accent-color);
+  margin: 1.1rem auto 0;
 }
 
 .about-image {
@@ -309,10 +258,12 @@ footer {
 }
 
 .contact-header {
-  font-family: var(--font-script);
-  font-weight: 400;
-  font-size: 2.2rem !important;
-  color: var(--accent-color);
+  font-family: var(--font-heading);
+  font-weight: 500;
+  font-size: 1.05rem !important;
+  text-transform: uppercase;
+  letter-spacing: 0.3em;
+  color: var(--text-primary);
   margin-bottom: 0.8em !important;
 }
 
@@ -415,12 +366,12 @@ footer {
 }
 
 .lightbox-caption {
-  font-family: var(--font-script);
-  font-weight: 400;
-  color: var(--accent-color);
-  font-size: 2.4rem;
+  font-family: var(--font-heading);
+  font-weight: 500;
+  color: var(--text-primary);
+  font-size: 1.5rem;
+  letter-spacing: 0.08em;
   margin-bottom: 1.5rem;
-  letter-spacing: 1px;
   border-bottom: 1px solid var(--border-soft);
   padding-bottom: 1rem;
 }
@@ -539,6 +490,7 @@ footer {
   position: absolute;
   top: 50%;
   transform: translateY(-50%);
+  z-index: 2; /* keep clickable above .lightbox-content-wrapper */
   background: var(--card-bg);
   border: 1px solid var(--border-soft);
   color: var(--accent-color);
