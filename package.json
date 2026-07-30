@@ -2,11 +2,18 @@
   "name": "photograph_web",
   "version": "1.0.0",
   "description": "",
-  "main": "script.js",
+  "main": "index.html",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
     "compress": "node image-tools/compress.js",
-    "build:gallery": "node image-tools/generate-gallery.js"
+    "build:gallery": "node image-tools/generate-gallery.js",
+    "check:gallery": "node scripts/check-gallery.js",
+    "check:gallery:deep": "node scripts/check-gallery.js --deep",
+    "lint": "npm run lint:js && npm run lint:css && npm run lint:html",
+    "lint:js": "eslint .",
+    "lint:css": "stylelint \"**/*.css\"",
+    "lint:html": "html-validate index.html",
+    "test:e2e": "playwright test",
+    "test": "npm run lint && npm run check:gallery && npm run test:e2e"
   },
   "repository": {
     "type": "git",
@@ -22,5 +29,14 @@
   "homepage": "https://github.com/apapp45455/photograph-portfolio#readme",
   "dependencies": {
     "sharp": "^0.34.5"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.5",
+    "@playwright/test": "^1.62.0",
+    "eslint": "^9.39.5",
+    "globals": "^17.8.0",
+    "html-validate": "^9.7.1",
+    "stylelint": "^17.14.1",
+    "stylelint-config-standard": "^40.0.0"
   }
 }

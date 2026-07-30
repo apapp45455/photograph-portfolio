@@ -32,13 +32,5 @@
   "30": "Incremental Processing (skip existing optimized files)",
   "31": "generate-gallery.js (Gallery Data Generator Tool)",
   "32": "sharp image-processing library",
-  "33": "js/gallery-data.json (generated data file)",
-  "34": "devDependencies",
-  "35": "rules",
-  "36": "check-gallery.js",
-  "37": "scripts",
-  "38": "rules",
-  "39": "gallery.spec.js",
-  "40": "playwright.config.js",
-  "41": "eslint.config.js"
+  "33": "js/gallery-data.json (generated data file)"
 }

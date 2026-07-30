@@ -33,15 +33,9 @@ class ImageProcessor {
         const image = sharp(filePath);
         const metadata = await image.metadata();
         
-        // Extract useful EXIF tags if they exist
-        // Sharp's metadata.exif is a buffer, we can use it to get basic info 
-        // or just rely on the 'metadata' object for common fields.
-        const exif = {};
-        if (metadata.exif) {
-            // In a real-world scenario, you might use 'exifr' here for better parsing.
-            // For now, we'll store basic dimensions and aspect ratio.
-        }
-
+        // Sharp exposes raw EXIF as a buffer (metadata.exif). We only store dimensions
+        // for now; parsing it here (e.g. with 'exifr') would let the lightbox skip the
+        // client-side exif-js read.
         return {
             width: metadata.width,
             height: metadata.height,
@@ -106,9 +100,11 @@ class GalleryGenerator {
                 fs.mkdirSync(CONFIG.DIRECTORIES.OPTIMIZED, { recursive: true });
             }
 
-            const files = fs.readdirSync(CONFIG.DIRECTORIES.IMAGES).filter(file => 
+            // Sorted so the generated manifest is deterministic across machines
+            // (readdir order differs between macOS and Linux/CI).
+            const files = fs.readdirSync(CONFIG.DIRECTORIES.IMAGES).filter(file =>
                 CONFIG.ALLOWED_EXTENSIONS.includes(path.extname(file).toLowerCase())
-            );
+            ).sort((a, b) => a.localeCompare(b, 'en'));
 
             console.log(`📂 Processing ${files.length} images (Concurrency: ${CONFIG.CONCURRENCY})`);
 

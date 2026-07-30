@@ -19,9 +19,16 @@ node image-tools/compress.js raw-images/*.jpg   # batch
 # Step 2: Generate optimized multi-size versions + gallery-data.json
 npm run build:gallery
 # or: node image-tools/generate-gallery.js
+
+# Checks (same ones CI runs)
+npm run lint                # eslint + stylelint + html-validate
+npm run check:gallery       # manifest vs files on disk (fast)
+npm run check:gallery:deep  # also decodes every image with sharp
+npm run test:e2e            # Playwright, serves the site itself
+npm test                    # lint + check:gallery + test:e2e
 ```
 
-There are no tests and no lint tooling configured.
+First-time Playwright setup: `npx playwright install chromium`.
 
 ## Adding a new photo (end-to-end flow)
 
@@ -54,6 +61,27 @@ There are no tests and no lint tooling configured.
 - `main.js` — `App` wires everything together on `DOMContentLoaded`
 
 **Verification:** `.claude/skills/verify/SKILL.md` — serve with `python3 -m http.server`, drive with Playwright + system Chrome (`channel: "chrome"`). Known noise documented there (profile.jpg 404, Cloudflare CORS on localhost).
+
+## CI
+
+`.github/workflows/ci.yml` runs on every push to `main`, every PR, and `workflow_dispatch`. Four parallel jobs plus a `CI passed` gate job (the one to mark required in branch protection):
+
+| Job | What it guards |
+|-----|----------------|
+| `lint` | ESLint (`eslint.config.js`: `js/` = browser ESM, `image-tools/`+`scripts/` = Node CJS), Stylelint (`.stylelintrc.json`), html-validate (`.htmlvalidate.json`) |
+| `gallery` | `scripts/check-gallery.js --deep` — every manifest entry resolves to real files, every image in `images/` has an entry, no orphan derivatives, recorded dimensions match the actual pixels |
+| `e2e` | `tests/gallery.spec.js` on desktop + mobile viewports: grid count matches the manifest, all images decode, every referenced asset returns 200, lightbox open/nav/close, EXIF resolves, stale-metadata guard, zero unexpected console errors |
+| `lighthouse` | `.lighthouserc.json` budget on a locally served copy (performance ≥ 0.5, a11y / best-practices / SEO ≥ 0.9) |
+
+No CD job — GitHub Pages deploys from the branch on its own.
+
+`.github/workflows/claude-code-review.yml` runs `anthropics/claude-code-action@v1` on every non-draft PR (`opened` / `synchronize`) and posts inline + top-level review comments. Needs the `ANTHROPIC_API_KEY` repo secret; without it the job fails and the rest of CI is unaffected. It is advisory — it is not part of the `CI passed` gate.
+
+Notes:
+- The e2e suite starts its own `python3 -m http.server` via `playwright.config.js` (`webServer`), no manual serve needed.
+- Expected console noise is filtered in `IGNORED_CONSOLE` in the spec (profile.jpg 404, Cloudflare beacon).
+- `generate-gallery.js` sorts filenames so the manifest is byte-identical across macOS and Linux.
+- Dependabot (`.github/dependabot.yml`) opens monthly npm + actions update PRs.
 
 **Image size tiers** (configured in `generate-gallery.js`):
 | Key | Max width |
