@@ -1,0 +1,14 @@
+{
+  "extends": ["stylelint-config-standard"],
+  "ignoreFiles": ["node_modules/**", "graphify-out/**"],
+  "rules": {
+    "no-descending-specificity": null,
+    "custom-property-pattern": null,
+    "selector-class-pattern": null,
+    "alpha-value-notation": null,
+    "color-function-notation": null,
+    "color-function-alias-notation": null,
+    "keyframes-name-pattern": null,
+    "media-feature-range-notation": "prefix"
+  }
+}

@@ -1,7 +1,7 @@
 /* Global Styles */
 :root {
   --bg-color: #faf8f3; /* Warm paper white — Japanese minimal base */
-  --card-bg: #ffffff;
+  --card-bg: #fff;
   --text-primary: #4a443d; /* Soft warm charcoal */
   --text-secondary: #9a9085; /* Muted warm grey */
   --border-soft: #ece7dd; /* Faint warm divider */
@@ -133,17 +133,15 @@ main {
   cursor: zoom-in;
   transition: transform 0.6s cubic-bezier(0.25, 1, 0.5, 1), filter 0.4s ease;
   will-change: transform;
+
+  /* Loading state: fade in once decoded */
+  opacity: 0;
+  animation: imageFadeIn 0.8s ease-out forwards;
 }
 
 .gallery-item-wrapper:hover .gallery-item {
   transform: scale(1.03);
   filter: brightness(1.1) !important;
-}
-
-/* Loading State for Images */
-.gallery-item {
-  opacity: 0;
-  animation: imageFadeIn 0.8s ease-out forwards;
 }
 
 .gallery-item.loaded {
@@ -317,6 +315,7 @@ footer {
   object-fit: contain;
   box-shadow: 0 8px 30px rgba(74, 68, 61, 0.18);
   border-radius: 2px;
+
   /* Ensure opacity starts at 1, JS will toggle class to animate */
 }
 
@@ -332,6 +331,7 @@ footer {
   0% {
     background-position: 200% 0;
   }
+
   100% {
     background-position: -200% 0;
   }
@@ -348,6 +348,7 @@ footer {
     opacity: 0;
     transform: scale(0.95);
   }
+
   to {
     opacity: 1;
     transform: scale(1);
@@ -525,6 +526,7 @@ footer {
   from {
     opacity: 0;
   }
+
   to {
     opacity: 1;
   }
@@ -537,9 +539,11 @@ footer {
     font-size: 18px;
     padding: 10px;
   }
+
   .prev-btn {
     left: 10px;
   }
+
   .next-btn {
     right: 10px;
   }

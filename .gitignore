@@ -1,2 +1,11 @@
 raw-images/*
 node_modules
+
+# Tooling output
+test-results/
+playwright-report/
+blob-report/
+.lighthouseci/
+
+# OS noise
+.DS_Store
