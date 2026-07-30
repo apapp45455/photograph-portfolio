@@ -10,12 +10,12 @@
     "semantic_hash": "6d154714fb2044bc2cc097b9ed81e7a2"
   },
   "image-tools/generate-gallery.js": {
-    "mtime": 1785428583.4164107,
-    "ast_hash": "4e6e131f34902857c347c51261a42940",
-    "semantic_hash": ""
+    "mtime": 1774237950.4075842,
+    "ast_hash": "34c9b9660cadc7a9609b97a69934fbc3",
+    "semantic_hash": "34c9b9660cadc7a9609b97a69934fbc3"
   },
   "js/gallery-data.json": {
-    "mtime": 1785428755.7039196,
+    "mtime": 1778218587.2484336,
     "ast_hash": "f8345f6f9fe5aefa089f83486ac2d62b",
     "semantic_hash": "f8345f6f9fe5aefa089f83486ac2d62b"
   },
@@ -25,14 +25,14 @@
     "semantic_hash": "289962df5a5c0ec1cd7217a976ff5335"
   },
   "package.json": {
-    "mtime": 1785428646.0353866,
-    "ast_hash": "7411cfc4533d21fdf97a1b3b5317ff40",
-    "semantic_hash": ""
+    "mtime": 1766726166.006375,
+    "ast_hash": "d3305cd43dce148a641e7996e701086f",
+    "semantic_hash": "d3305cd43dce148a641e7996e701086f"
   },
   "CLAUDE.md": {
-    "mtime": 1785429186.5889773,
-    "ast_hash": "beef30cabe6e0efd3dc4b69725066572",
-    "semantic_hash": ""
+    "mtime": 1781859400.277863,
+    "ast_hash": "1dfe246a76e3d6d4377bc5c5d17c38a7",
+    "semantic_hash": "1dfe246a76e3d6d4377bc5c5d17c38a7"
   },
   "image-tools/README.md": {
     "mtime": 1776911565.694127,
@@ -40,13 +40,13 @@
     "semantic_hash": "d29a6ff7951e4fdaf471b2e8f46cb4d2"
   },
   "index.html": {
-    "mtime": 1785428350.9960704,
-    "ast_hash": "af7afeafee65c6f86f82f35b98f92e38",
+    "mtime": 1783874136.0584316,
+    "ast_hash": "8d066ffa8ca7c739f6fd6ed110944627",
     "semantic_hash": ""
   },
   ".claude/settings.local.json": {
-    "mtime": 1783875525.9243782,
-    "ast_hash": "6116f6d0d1ee71eb3fb302adf5a6bb20",
+    "mtime": 1783874814.6452749,
+    "ast_hash": "5c37babff2f2da8e75fb92000be748e6",
     "semantic_hash": ""
   },
   "js/config.js": {
@@ -537,56 +537,6 @@
   "images/\u6d6e\u5dde.jpg": {
     "mtime": 1776911718.6899917,
     "ast_hash": "e7dc392c142d9e88660c21ed8b0d3ddf",
-    "semantic_hash": ""
-  },
-  ".htmlvalidate.json": {
-    "mtime": 1785428237.683997,
-    "ast_hash": "a99d41da14ee849464556bf8bd4c4e30",
-    "semantic_hash": ""
-  },
-  ".lighthouserc.json": {
-    "mtime": 1785428657.65115,
-    "ast_hash": "6f5607dec2e9252f41530b47db49b66c",
-    "semantic_hash": ""
-  },
-  ".stylelintrc.json": {
-    "mtime": 1785428333.370775,
-    "ast_hash": "49d520445aff043532c36cd3ee0d13bd",
-    "semantic_hash": ""
-  },
-  "eslint.config.js": {
-    "mtime": 1785428217.2496896,
-    "ast_hash": "2409f98390b1bef091d133c840744573",
-    "semantic_hash": ""
-  },
-  "playwright.config.js": {
-    "mtime": 1785428394.7948735,
-    "ast_hash": "5bf04c37f2ac0c857bc00c64d4e22b3c",
-    "semantic_hash": ""
-  },
-  "scripts/check-gallery.js": {
-    "mtime": 1785428630.464978,
-    "ast_hash": "48cd1fa5b22fd7dcf37300d59c6731d8",
-    "semantic_hash": ""
-  },
-  "tests/gallery.spec.js": {
-    "mtime": 1785428489.5229068,
-    "ast_hash": "d70954b463f45a230b26b0aaa8c9c5f4",
-    "semantic_hash": ""
-  },
-  ".github/dependabot.yml": {
-    "mtime": 1785428711.0564528,
-    "ast_hash": "e8b3aed512e26fb3b612325a545cf3c3",
-    "semantic_hash": ""
-  },
-  ".github/workflows/ci.yml": {
-    "mtime": 1785428706.4813302,
-    "ast_hash": "ad3958e568ed006e8307f49597f13dcc",
-    "semantic_hash": ""
-  },
-  ".github/workflows/claude-code-review.yml": {
-    "mtime": 1785429172.6621182,
-    "ast_hash": "763852f3f79db29107865a6120d155bc",
     "semantic_hash": ""
   }
 }
