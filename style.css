@@ -178,11 +178,17 @@ main {
   outline-offset: 3px;
 }
 
-/* The tile's focusable element is the <picture>, not the wrapper — and the wrapper
-   is overflow:hidden, so the ring has to sit inside rather than outside it. */
-.gallery-item-wrapper picture:focus-visible {
+/* The tile's focusable element is the <img>, not the wrapper — and the wrapper is
+   overflow:hidden, so the ring has to sit inside rather than outside it. */
+.gallery-item:focus-visible {
   outline: 2px solid var(--accent-color);
   outline-offset: -4px;
+}
+
+/* Match .project-item picture: without this the home grid's picture is an inline box
+   wrapped around a block image, so the two grids are structurally different. */
+.gallery-item-wrapper picture {
+  display: block;
 }
 
 /* Section headings — shared by the home sections and the series band */

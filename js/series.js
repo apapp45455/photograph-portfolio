@@ -163,10 +163,13 @@ export class SeriesShowcase {
  * so each photo can carry a caption and claim a full or half row.
  */
 export class ProjectItemRenderer extends GalleryItemRenderer {
-  /** The hand-written caption beats a de-underscored filename as alt text. */
+  /**
+   * Hand-written alt beats a de-underscored filename. Deliberately not the caption:
+   * two frames can share one, which would give two controls the same accessible name.
+   */
   createImage(item) {
     const img = super.createImage(item);
-    if (item.caption) img.alt = item.caption;
+    if (item.alt) img.alt = item.alt;
     return img;
   }
 
@@ -175,7 +178,7 @@ export class ProjectItemRenderer extends GalleryItemRenderer {
       className: `${this.classes.GALLERY_ITEM_WRAPPER} ${this.classes.PROJECT_ITEM} ${this.classes.PROJECT_ITEM}--${item.span}`,
     });
     const picture = this.createPicture(item);
-    this.markOpenable(figure, picture, index);
+    this.markOpenable(figure, picture.querySelector("img"), index);
     figure.appendChild(picture);
 
     if (item.caption) {
@@ -200,7 +203,7 @@ export function selectSeriesPhotos(series) {
     return series.photos
       .map((photo) => {
         const item = byFilename.get(key(photo.filename));
-        return item ? { ...item, span: photo.span, caption: photo.caption } : null;
+        return item ? { ...item, span: photo.span, caption: photo.caption, alt: photo.alt } : null;
       })
       .filter(Boolean);
   };

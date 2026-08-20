@@ -196,6 +196,9 @@ function checkSeriesFreshness(generated, data) {
             if (photo.caption !== (item.caption || '')) {
                 stale(`${label}/${item.file}: caption is "${photo.caption}", source says "${item.caption || ''}"`);
             }
+            if ((photo.alt || '') !== (item.alt || '')) {
+                stale(`${label}/${item.file}: alt is "${photo.alt || ''}", source says "${item.alt || ''}"`);
+            }
         });
     });
 }
@@ -255,6 +258,17 @@ function checkSeries(data) {
         }
         if (definition.page && !fs.existsSync(definition.page)) {
             fail(`${label}: page "${definition.page}" does not exist`);
+        }
+
+        // series-data.json embeds the cover rather than referencing it, and every other
+        // check reads the copy's own fields — so a commit that misses the regenerated
+        // series-data.json renders stale width/height on the home page's LCP element
+        // with all four CI jobs green.
+        if (definition.cover) {
+            const source = data.find((entry) => norm(entry.filename) === norm(definition.cover.filename));
+            if (source && JSON.stringify(source) !== JSON.stringify(definition.cover)) {
+                fail(`${label}: embedded cover differs from its ${CONFIG.DATA} entry — run \`npm run build:gallery\``);
+            }
         }
 
         const members = data.filter((entry) => entry.series === definition.id);

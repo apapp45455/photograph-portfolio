@@ -162,7 +162,8 @@ class SeriesCatalog {
                 photos.push({
                     filename: entry.filename,
                     span: item.span === 'full' ? 'full' : 'half',
-                    caption: item.caption || ''
+                    caption: item.caption || '',
+                    alt: item.alt || ''
                 });
             }
 
@@ -172,7 +173,7 @@ class SeriesCatalog {
             for (const entry of members) {
                 if (laidOut.has(SeriesCatalog.norm(entry.filename))) continue;
                 console.warn(`\n⚠️  Series "${definition.id}": "${entry.filename}" is not in layout — appended at the end without a caption`);
-                photos.push({ filename: entry.filename, span: 'half', caption: '' });
+                photos.push({ filename: entry.filename, span: 'half', caption: '', alt: '' });
             }
 
             return {

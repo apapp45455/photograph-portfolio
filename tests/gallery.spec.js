@@ -158,7 +158,7 @@ test.describe('lightbox', () => {
 
         // The control is the <picture>: on a <figure> tile, role="button" would fold the
         // caption into the accessible name and drop the figure/figcaption relationship.
-        const first = page.locator('#gallery-container .gallery-item-wrapper picture').first();
+        const first = page.locator('#gallery-container .gallery-item-wrapper img').first();
         await expect(first).toHaveAttribute('role', 'button');
 
         await first.focus();
@@ -184,6 +184,9 @@ test.describe('lightbox', () => {
                     width: style.outlineWidth,
                     outlineStyle: style.outlineStyle,
                     offset: style.outlineOffset,
+                    tag: el.tagName,
+                    matchesImageBox: Math.abs(el.getBoundingClientRect().height
+                        - el.closest('.gallery-item-wrapper').querySelector('img').getBoundingClientRect().height) < 1,
                 };
             });
         }
@@ -199,12 +202,16 @@ test.describe('lightbox', () => {
 
         // The tile is inside an overflow:hidden wrapper, so an outward ring is clipped.
         expect(parseFloat(ring.offset)).toBeLessThan(0);
+
+        // …and it is drawn on the photo itself, not on a box that merely contains it.
+        expect(ring.tag).toBe('IMG');
+        expect(ring.matchesImageBox).toBe(true);
     });
 
     test('keeps focus inside the lightbox, and returns it on close', async ({ page }) => {
         await page.goto('/');
 
-        const first = page.locator('#gallery-container .gallery-item-wrapper picture').first();
+        const first = page.locator('#gallery-container .gallery-item-wrapper img').first();
         await first.focus();
         await page.keyboard.press('Enter');
         await expect(page.locator('#lightbox')).toHaveClass(/active/);

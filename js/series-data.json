@@ -36,27 +36,32 @@
       {
         "filename": "日本_霞城觀景台.jpg",
         "span": "half",
-        "caption": "山形・霞城觀景台"
+        "caption": "山形・霞城觀景台",
+        "alt": "從霞城觀景台俯瞰山形市的棋盤狀鋪面，中央有一名行人"
       },
       {
         "filename": "日本_霞城觀景台2.jpg",
         "span": "half",
-        "caption": "山形・霞城觀景台"
+        "caption": "山形・霞城觀景台",
+        "alt": "從霞城觀景台俯瞰山形市的十字路口與行人穿越道"
       },
       {
         "filename": "日本_花見山公園.jpg",
         "span": "full",
-        "caption": "福島・花見山公園"
+        "caption": "福島・花見山公園",
+        "alt": "花見山公園的步道，兩側是新綠與紅葉灌木"
       },
       {
         "filename": "日本_會津若松城.jpg",
         "span": "half",
-        "caption": "會津若松・鶴ヶ城"
+        "caption": "會津若松・鶴ヶ城",
+        "alt": "會津若松城天守閣的白牆與石垣，仰角"
       },
       {
         "filename": "日本_會津若松城_鳥居.jpg",
         "span": "half",
-        "caption": "會津若松・鶴ヶ城"
+        "caption": "會津若松・鶴ヶ城",
+        "alt": "從會津若松城上俯瞰樹林間的紅色鳥居參道"
       }
     ]
   }

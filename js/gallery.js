@@ -26,7 +26,7 @@ export class GalleryItemRenderer {
   render(item, index) {
     const wrapper = createElement("div", { className: this.classes.GALLERY_ITEM_WRAPPER });
     const picture = this.createPicture(item);
-    this.markOpenable(wrapper, picture, index);
+    this.markOpenable(wrapper, picture.querySelector("img"), index);
     wrapper.appendChild(picture);
     return wrapper;
   }
@@ -35,10 +35,12 @@ export class GalleryItemRenderer {
    * A tile opens the lightbox, so it has to be reachable and operable by keyboard —
    * otherwise the dialog is a properly built one that no keyboard user can enter.
    *
-   * The control is the <picture>, not the wrapper: `button` is name-from-content, so
-   * putting it on a <figure> would fold the caption into the name and discard the
-   * figure/figcaption relationship. Here the name is just the <img>'s alt.
-   * `dataset.index` stays on the wrapper, which is what click delegation looks up.
+   * The control is the <img>, not the wrapper and not the <picture>: `button` is
+   * name-from-content, so a <figure> would fold the caption into the name and lose the
+   * figure/figcaption relationship, while <picture> is an inline box ARIA-in-HTML does
+   * not sanction a role on. On the <img> the name is its alt and the focus ring lands
+   * on the photo by construction. `dataset.index` stays on the wrapper, which is what
+   * click delegation looks up.
    */
   markOpenable(wrapper, control, index) {
     wrapper.dataset.index = index;

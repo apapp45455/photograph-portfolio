@@ -1,5 +1,5 @@
 {
-  "$comment": "Authoring source for photo series (專題). Edit this by hand, then run `npm run build:gallery`. Photos whose filename matches a series' `match` regex are tagged with that series id in js/gallery-data.json and are shown on the series page instead of the home grid. `layout` controls the order and column span on the series page; `span` is \"full\" (whole row) or \"half\".",
+  "$comment": "Authoring source for photo series (專題). Edit this by hand, then run `npm run build:gallery`. Photos whose filename matches a series' `match` regex are tagged with that series id in js/gallery-data.json and are shown on the series page instead of the home grid. `layout` controls the order and column span on the series page; `span` is \"full\" (whole row) or \"half\". `caption` is the visible line under the photo; `alt` describes the image for screen readers and must be distinct per photo (two frames can share a caption).",
   "series": [
     {
       "id": "japan",
@@ -11,11 +11,36 @@
       "page": "projects/japan.html",
       "cover": "日本_會津若松城.jpg",
       "layout": [
-        { "file": "日本_霞城觀景台.jpg", "span": "half", "caption": "山形・霞城觀景台" },
-        { "file": "日本_霞城觀景台2.jpg", "span": "half", "caption": "山形・霞城觀景台" },
-        { "file": "日本_花見山公園.jpg", "span": "full", "caption": "福島・花見山公園" },
-        { "file": "日本_會津若松城.jpg", "span": "half", "caption": "會津若松・鶴ヶ城" },
-        { "file": "日本_會津若松城_鳥居.jpg", "span": "half", "caption": "會津若松・鶴ヶ城" }
+        {
+          "file": "日本_霞城觀景台.jpg",
+          "span": "half",
+          "caption": "山形・霞城觀景台",
+          "alt": "從霞城觀景台俯瞰山形市的棋盤狀鋪面，中央有一名行人"
+        },
+        {
+          "file": "日本_霞城觀景台2.jpg",
+          "span": "half",
+          "caption": "山形・霞城觀景台",
+          "alt": "從霞城觀景台俯瞰山形市的十字路口與行人穿越道"
+        },
+        {
+          "file": "日本_花見山公園.jpg",
+          "span": "full",
+          "caption": "福島・花見山公園",
+          "alt": "花見山公園的步道，兩側是新綠與紅葉灌木"
+        },
+        {
+          "file": "日本_會津若松城.jpg",
+          "span": "half",
+          "caption": "會津若松・鶴ヶ城",
+          "alt": "會津若松城天守閣的白牆與石垣，仰角"
+        },
+        {
+          "file": "日本_會津若松城_鳥居.jpg",
+          "span": "half",
+          "caption": "會津若松・鶴ヶ城",
+          "alt": "從會津若松城上俯瞰樹林間的紅色鳥居參道"
+        }
       ]
     }
   ]
