@@ -205,10 +205,12 @@ class GalleryGenerator {
             }
 
             // Sorted so the generated manifest is deterministic across machines
-            // (readdir order differs between macOS and Linux/CI).
+            // (readdir order differs between macOS and Linux/CI). By UTF-16 code unit,
+            // not localeCompare: collation of CJK depends on the ICU data Node ships
+            // with, so a Node upgrade could quietly reshuffle the grid.
             const files = fs.readdirSync(CONFIG.DIRECTORIES.IMAGES).filter(file =>
                 CONFIG.ALLOWED_EXTENSIONS.includes(path.extname(file).toLowerCase())
-            ).sort((a, b) => a.localeCompare(b, 'en'));
+            ).sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
 
             console.log(`📂 Processing ${files.length} images (Concurrency: ${CONFIG.CONCURRENCY})`);
 

@@ -93,14 +93,17 @@ async function verifyPixels(data) {
 }
 
 /**
- * gallery-data.json cannot go stale unnoticed because it is checked against the
- * files on disk. The series pipeline's equivalent of "the files on disk" is the
- * hand-written image-tools/series.json — so compare the two directly. Without
- * this, editing a caption and forgetting `npm run build:gallery` ships the old
- * copy with lint, check:gallery and the whole e2e suite green (e2e derives its
- * expectations from the generated file, so it asserts the stale value).
+ * Rules about image-tools/series.json that the generator does not enforce: an id that
+ * cannot be a DOM token, two photos sharing alt text, a layout entry naming a photo
+ * that is not in the series.
+ *
+ * Staleness is deliberately not checked here. Comparing the generated file field by
+ * field means re-implementing SeriesCatalog.build() by hand, and the field list goes
+ * stale the moment series.json grows one — reopening the very hole it was written to
+ * close. The `gallery` CI job re-runs the generator and diffs the result instead,
+ * which is exact by construction and needs no maintenance.
  */
-function checkSeriesFreshness(generated, data) {
+function checkSeriesSource(data) {
     let source;
     try {
         source = JSON.parse(fs.readFileSync(CONFIG.SERIES_SOURCE, 'utf8')).series || [];
@@ -109,33 +112,14 @@ function checkSeriesFreshness(generated, data) {
         return;
     }
 
-    const stale = (msg) => fail(`${msg} — run \`npm run build:gallery\``);
-
-    // The generator assigns first-match-wins across all definitions, so the patterns
-    // have to be applied as one ordered list. Testing each in isolation reports false
-    // staleness the moment two overlap — and no rebuild can clear it.
-    const patterns = [];
-    for (const definition of source) {
-        try {
-            patterns.push({ id: definition.id, pattern: new RegExp(definition.match) });
-        } catch (error) {
-            fail(`series "${definition.id}": match "${definition.match}" is not a valid regular expression (${error.message})`);
-            return;
-        }
-    }
-
-    for (const entry of data) {
-        const hit = patterns.find((candidate) => candidate.pattern.test(norm(entry.filename)));
-        const expected = hit ? hit.id : null;
-        if ((entry.series ?? null) !== expected) {
-            stale(`"${entry.filename}" is tagged ${entry.series ? `"${entry.series}"` : 'with no series'}, ${CONFIG.SERIES_SOURCE} resolves it to ${expected ? `"${expected}"` : 'no series'}`);
-        }
-    }
-
-    // Copy-pasting a series block and forgetting to change `id` yields two identical
-    // cards and duplicate DOM ids, which aria-labelledby then resolves to the first of.
+    const byFilename = new Map(data.map((entry) => [norm(entry.filename), entry]));
     const seenIds = new Set();
+
     for (const definition of source) {
+        const label = `series "${definition.id}"`;
+
+        // Copy-pasting a series block and forgetting to change `id` yields two identical
+        // cards and duplicate DOM ids, which aria-labelledby resolves to the first of.
         if (seenIds.has(definition.id)) fail(`${CONFIG.SERIES_SOURCE}: duplicate series id "${definition.id}"`);
         seenIds.add(definition.id);
 
@@ -145,79 +129,37 @@ function checkSeriesFreshness(generated, data) {
         if (!/^[a-z0-9][a-z0-9-]*$/i.test(String(definition.id || ''))) {
             fail(`${CONFIG.SERIES_SOURCE}: series id "${definition.id}" must be letters, digits and hyphens (it is used as a DOM id)`);
         }
-    }
 
-    const sourceIds = source.map((entry) => entry.id);
-    const generatedIds = generated.map((entry) => entry.id);
-    if (sourceIds.join('\u0000') !== generatedIds.join('\u0000')) {
-        stale(`${CONFIG.SERIES_DATA} has series [${generatedIds}], ${CONFIG.SERIES_SOURCE} declares [${sourceIds}]`);
-        return;
-    }
-
-    source.forEach((definition, index) => {
-        const built = generated[index];
-        const label = `series "${definition.id}"`;
-
-        for (const field of ['title', 'titleZh', 'period', 'summary', 'page']) {
-            if (definition[field] !== built[field]) {
-                stale(`${label}: ${field} is "${built[field]}" in ${CONFIG.SERIES_DATA}, "${definition[field]}" in ${CONFIG.SERIES_SOURCE}`);
-            }
+        try {
+            new RegExp(definition.match);
+        } catch (error) {
+            fail(`${label}: match "${definition.match}" is not a valid regular expression (${error.message})`);
         }
 
-        if (built.cover && norm(built.cover.filename) !== norm(definition.cover)) {
-            stale(`${label}: cover is "${built.cover.filename}", ${CONFIG.SERIES_SOURCE} says "${definition.cover}"`);
-        }
-
-        // A layout entry that resolves to nothing is dropped at build time with a
-        // warning — but CI never runs the build, so without this it is a silent no-op.
-        const members = new Set(built.photos.map((photo) => norm(photo.filename)));
-        const byFilename = new Map(data.map((entry) => [norm(entry.filename), entry]));
-
+        const seenAlts = new Map();
         for (const item of definition.layout || []) {
             if (!item.file) {
                 fail(`${label}: a layout entry has no "file" key`);
                 continue;
             }
-            if (members.has(norm(item.file))) continue;
 
+            // Dropped at build time with a warning — but CI never runs the build, so
+            // without this a 臺/台 typo is a silent no-op.
             const entry = byFilename.get(norm(item.file));
             if (!entry) {
                 fail(`${label}: layout lists "${item.file}", which is not in ${CONFIG.IMAGES}/`);
             } else if (entry.series !== definition.id) {
-                fail(`${label}: layout lists "${item.file}", which belongs to series "${entry.series}"`);
-            } else {
-                stale(`${label}: layout lists "${item.file}", missing from ${CONFIG.SERIES_DATA}`);
+                fail(`${label}: layout lists "${item.file}", which belongs to series "${entry.series || 'none'}"`);
             }
-        }
 
-        // alt exists precisely because two frames can share a caption; a copy-pasted
-        // layout block would otherwise reintroduce two identically-named buttons.
-        const seenAlts = new Map();
-        for (const item of definition.layout || []) {
+            // alt exists precisely because two frames can share a caption; a copy-pasted
+            // layout block would otherwise give two tiles the same accessible name.
             if (!item.alt) continue;
             const first = seenAlts.get(item.alt);
             if (first) fail(`${label}: "${item.file}" and "${first}" share the alt text "${item.alt}"`);
             else seenAlts.set(item.alt, item.file);
         }
-
-        const expected = (definition.layout || []).filter((item) => members.has(norm(item.file)));
-
-        expected.forEach((item, position) => {
-            const photo = built.photos[position];
-            if (!photo || norm(photo.filename) !== norm(item.file)) {
-                stale(`${label}: photo #${position} is "${photo ? photo.filename : '(missing)'}", ${CONFIG.SERIES_SOURCE} lays out "${item.file}"`);
-                return;
-            }
-            const span = item.span === 'full' ? 'full' : 'half';
-            if (photo.span !== span) stale(`${label}/${item.file}: span is "${photo.span}", source says "${span}"`);
-            if (photo.caption !== (item.caption || '')) {
-                stale(`${label}/${item.file}: caption is "${photo.caption}", source says "${item.caption || ''}"`);
-            }
-            if ((photo.alt || '') !== (item.alt || '')) {
-                stale(`${label}/${item.file}: alt is "${photo.alt || ''}", source says "${item.alt || ''}"`);
-            }
-        });
-    });
+    }
 }
 
 /**
@@ -251,7 +193,7 @@ function checkSeries(data) {
         return;
     }
 
-    checkSeriesFreshness(series, data);
+    checkSeriesSource(data);
 
     const knownIds = new Set(series.map((entry) => entry.id));
     const byFilename = new Map(data.map((entry) => [norm(entry.filename), entry]));

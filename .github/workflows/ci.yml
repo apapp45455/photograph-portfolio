@@ -57,6 +57,20 @@ jobs:
       - name: Check js/gallery-data.json against images on disk
         run: npm run check:gallery:deep
 
+      # The staleness guard for everything generated from image-tools/series.json.
+      # Re-running the generator and diffing is exact by construction — a hand-written
+      # field-by-field comparison goes stale the moment series.json grows a field.
+      # Existing derivatives are skipped, so this only rewrites the two JSON files.
+      - name: Manifests match what the generator produces
+        run: |
+          npm run build:gallery
+          git diff --exit-code -- js/gallery-data.json js/series-data.json
+          if [ -n "$(git status --porcelain -- images/optimized)" ]; then
+            echo "generate-gallery.js produced derivatives that are not committed:"
+            git status --porcelain -- images/optimized
+            exit 1
+          fi
+
   e2e:
     name: Browser tests (Playwright)
     runs-on: ubuntu-latest

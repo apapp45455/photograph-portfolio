@@ -87,7 +87,7 @@ First-time Playwright setup: `npx playwright install chromium`.
 | Job | What it guards |
 |-----|----------------|
 | `lint` | ESLint (`eslint.config.js`: `js/` = browser ESM, `image-tools/`+`scripts/` = Node CJS), Stylelint (`.stylelintrc.json`), html-validate (`.htmlvalidate.json`) |
-| `gallery` | `scripts/check-gallery.js --deep` — every manifest entry resolves to real files, every image in `images/` has an entry, no orphan derivatives, recorded dimensions match the actual pixels, and every series' photos/cover/page/counts line up with the gallery manifest |
+| `gallery` | `scripts/check-gallery.js --deep` (files, dimensions, orphans, and the series rules the generator does not enforce) **plus a re-run of `generate-gallery.js` followed by `git diff --exit-code`** — that diff, not a hand-written comparison, is what catches a `series.json` edit committed without a rebuild |
 | `e2e` | `tests/gallery.spec.js` on desktop + mobile viewports: home grid count matches the ungrouped manifest entries, all images decode, every referenced asset returns 200, lightbox open/nav/close, EXIF resolves, stale-metadata guard, zero unexpected console errors — plus, per series, one card on the home page and a series page whose photos match the layout (order, span, caption, `../`-rebased paths) |
 | `lighthouse` | `.lighthouserc.json` budget on a locally served copy of the home page **and** `projects/japan.html` (performance ≥ 0.5, a11y / best-practices / SEO ≥ 0.9) |
 
@@ -98,7 +98,7 @@ No CD job — GitHub Pages deploys from the branch on its own.
 Notes:
 - The e2e suite starts its own `python3 -m http.server` via `playwright.config.js` (`webServer`), no manual serve needed.
 - Expected console noise is filtered in `IGNORED_CONSOLE` in the spec (profile.jpg 404, Cloudflare beacon).
-- `generate-gallery.js` sorts filenames so the manifest is byte-identical across macOS and Linux; CJK filenames are compared NFC-normalised (macOS gives NFD).
+- `generate-gallery.js` sorts filenames by UTF-16 code unit — not `localeCompare`, whose CJK collation depends on the ICU data Node ships with — so the manifest is byte-identical across machines and Node versions. CJK filenames are compared NFC-normalised (macOS gives NFD).
 - The a11y score sits just above the 0.9 gate: the muted palette (`--text-secondary` / `--accent-color` on the warm-white background) fails WCAG AA contrast on small text. Darkening those tokens is the fix if the budget ever trips.
 - Dependabot (`.github/dependabot.yml`) opens monthly npm + actions update PRs.
 
