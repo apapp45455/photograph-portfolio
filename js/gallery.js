@@ -25,9 +25,21 @@ export class GalleryItemRenderer {
 
   render(item, index) {
     const wrapper = createElement("div", { className: this.classes.GALLERY_ITEM_WRAPPER });
-    wrapper.dataset.index = index;
+    this.markOpenable(wrapper, index);
     wrapper.appendChild(this.createPicture(item));
     return wrapper;
+  }
+
+  /**
+   * A tile opens the lightbox, so it has to be reachable and operable by keyboard —
+   * otherwise the dialog is a properly built one that no keyboard user can enter.
+   * The accessible name comes from the contained <img>'s alt.
+   */
+  markOpenable(element, index) {
+    element.dataset.index = index;
+    element.tabIndex = 0;
+    element.setAttribute("role", "button");
+    return element;
   }
 
   createPicture(item) {
@@ -96,14 +108,23 @@ export class Gallery {
   }
 
   initEventDelegation() {
-    this.container.addEventListener("click", (e) => {
-      const wrapper = e.target.closest(`.${this.classes.GALLERY_ITEM_WRAPPER}`);
-      if (!wrapper || wrapper.dataset.index === undefined) return;
+    this.container.addEventListener("click", (e) => this.requestOpen(e.target));
 
-      this.eventTarget.dispatchEvent(new CustomEvent(this.openEventName, {
-        detail: { index: parseInt(wrapper.dataset.index, 10) },
-      }));
+    this.container.addEventListener("keydown", (e) => {
+      if (e.key !== "Enter" && e.key !== " ") return;
+      // Space scrolls the page by default, which is not what a button does.
+      if (this.requestOpen(e.target)) e.preventDefault();
     });
+  }
+
+  requestOpen(target) {
+    const wrapper = target.closest(`.${this.classes.GALLERY_ITEM_WRAPPER}`);
+    if (!wrapper || wrapper.dataset.index === undefined) return false;
+
+    this.eventTarget.dispatchEvent(new CustomEvent(this.openEventName, {
+      detail: { index: parseInt(wrapper.dataset.index, 10) },
+    }));
+    return true;
   }
 
   render() {

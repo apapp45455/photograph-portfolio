@@ -93,6 +93,66 @@ async function verifyPixels(data) {
 }
 
 /**
+ * gallery-data.json cannot go stale unnoticed because it is checked against the
+ * files on disk. The series pipeline's equivalent of "the files on disk" is the
+ * hand-written image-tools/series.json — so compare the two directly. Without
+ * this, editing a caption and forgetting `npm run build:gallery` ships the old
+ * copy with lint, check:gallery and the whole e2e suite green (e2e derives its
+ * expectations from the generated file, so it asserts the stale value).
+ */
+function checkSeriesFreshness(generated) {
+    let source;
+    try {
+        source = JSON.parse(fs.readFileSync(CONFIG.SERIES_SOURCE, 'utf8')).series || [];
+    } catch (error) {
+        fail(`${CONFIG.SERIES_SOURCE} is not valid JSON: ${error.message}`);
+        return;
+    }
+
+    const stale = (msg) => fail(`${msg} — run \`npm run build:gallery\``);
+
+    const sourceIds = source.map((entry) => entry.id);
+    const generatedIds = generated.map((entry) => entry.id);
+    if (sourceIds.join('\u0000') !== generatedIds.join('\u0000')) {
+        stale(`${CONFIG.SERIES_DATA} has series [${generatedIds}], ${CONFIG.SERIES_SOURCE} declares [${sourceIds}]`);
+        return;
+    }
+
+    source.forEach((definition, index) => {
+        const built = generated[index];
+        const label = `series "${definition.id}"`;
+
+        for (const field of ['title', 'titleZh', 'period', 'summary', 'page']) {
+            if (definition[field] !== built[field]) {
+                stale(`${label}: ${field} is "${built[field]}" in ${CONFIG.SERIES_DATA}, "${definition[field]}" in ${CONFIG.SERIES_SOURCE}`);
+            }
+        }
+
+        if (built.cover && norm(built.cover.filename) !== norm(definition.cover)) {
+            stale(`${label}: cover is "${built.cover.filename}", ${CONFIG.SERIES_SOURCE} says "${definition.cover}"`);
+        }
+
+        // Entries naming a photo that no longer exists are dropped at build time
+        // (with a warning), so compare only the ones that survived.
+        const built_ = new Set(built.photos.map((photo) => norm(photo.filename)));
+        const expected = (definition.layout || []).filter((item) => built_.has(norm(item.file)));
+
+        expected.forEach((item, position) => {
+            const photo = built.photos[position];
+            if (!photo || norm(photo.filename) !== norm(item.file)) {
+                stale(`${label}: photo #${position} is "${photo ? photo.filename : '(missing)'}", ${CONFIG.SERIES_SOURCE} lays out "${item.file}"`);
+                return;
+            }
+            const span = item.span === 'full' ? 'full' : 'half';
+            if (photo.span !== span) stale(`${label}/${item.file}: span is "${photo.span}", source says "${span}"`);
+            if (photo.caption !== (item.caption || '')) {
+                stale(`${label}/${item.file}: caption is "${photo.caption}", source says "${item.caption || ''}"`);
+            }
+        });
+    });
+}
+
+/**
  * The series manifest must stay in step with the gallery manifest: a photo tagged
  * with a series has to appear on that series' page, and every photo the page lists
  * has to exist. Otherwise a photo silently disappears from the site — it is absent
@@ -122,6 +182,8 @@ function checkSeries(data) {
         fail(`${CONFIG.SERIES_DATA} must be an array, got ${typeof series}`);
         return;
     }
+
+    checkSeriesFreshness(series);
 
     const knownIds = new Set(series.map((entry) => entry.id));
     const byFilename = new Map(data.map((entry) => [norm(entry.filename), entry]));

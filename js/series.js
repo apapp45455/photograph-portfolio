@@ -43,7 +43,9 @@ export class SeriesCardRenderer {
   render(series, index = 0) {
     const card = createElement("a", { className: this.classes.SERIES_CARD });
     card.href = series.page;
-    card.setAttribute("aria-label", `${series.title} — ${series.count} photographs`);
+    // No aria-label: it would replace the whole subtree for name computation, hiding
+    // the period, titleZh and summary — the editorial copy the card exists to carry.
+    // The visible text already names the link ("Japan · Tōhoku … View series · 5 photographs").
 
     card.appendChild(this.createCover(series, index));
     card.appendChild(this.createBody(series));
@@ -64,7 +66,7 @@ export class SeriesCardRenderer {
     }
 
     const img = document.createElement("img");
-    img.alt = series.title;
+    img.alt = ""; // decorative: the card's text says everything this repeats
     img.width = series.cover.width;
     img.height = series.cover.height;
     if (index === 0) {
@@ -150,7 +152,7 @@ export class ProjectItemRenderer extends GalleryItemRenderer {
     const figure = createElement("figure", {
       className: `${this.classes.GALLERY_ITEM_WRAPPER} ${this.classes.PROJECT_ITEM} ${this.classes.PROJECT_ITEM}--${item.span}`,
     });
-    figure.dataset.index = index;
+    this.markOpenable(figure, index);
     figure.appendChild(this.createPicture(item));
 
     if (item.caption) {

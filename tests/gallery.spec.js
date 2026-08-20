@@ -153,6 +153,39 @@ test.describe('lightbox', () => {
         expect(await metadata.textContent()).toBe(settled);
     });
 
+    test('a thumbnail can be reached and opened from the keyboard', async ({ page }) => {
+        await page.goto('/');
+
+        const first = page.locator('#gallery-container .gallery-item-wrapper').first();
+        await expect(first).toHaveAttribute('role', 'button');
+
+        await first.focus();
+        await page.keyboard.press('Enter');
+        await expect(page.locator('#lightbox')).toHaveClass(/active/);
+    });
+
+    test('keeps focus inside the lightbox, and returns it on close', async ({ page }) => {
+        await page.goto('/');
+
+        const first = page.locator('#gallery-container .gallery-item-wrapper').first();
+        await first.focus();
+        await page.keyboard.press('Enter');
+        await expect(page.locator('#lightbox')).toHaveClass(/active/);
+
+        // aria-modal claims the rest of the page is inert; Tab must not escape it.
+        for (let i = 0; i < 5; i += 1) {
+            await page.keyboard.press('Tab');
+            await expect
+                .poll(() => page.evaluate(() => document.getElementById('lightbox').contains(document.activeElement)))
+                .toBe(true);
+        }
+
+        await page.keyboard.press('Escape');
+        await expect
+            .poll(() => page.evaluate(() => document.activeElement.classList.contains('gallery-item-wrapper')))
+            .toBe(true);
+    });
+
     test('closes on Escape and on backdrop click, restoring scroll', async ({ page }) => {
         await page.goto('/');
         const lightbox = page.locator('#lightbox');
