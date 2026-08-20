@@ -138,6 +138,13 @@ function checkSeriesFreshness(generated, data) {
     for (const definition of source) {
         if (seenIds.has(definition.id)) fail(`${CONFIG.SERIES_SOURCE}: duplicate series id "${definition.id}"`);
         seenIds.add(definition.id);
+
+        // The id becomes part of a DOM id that aria-labelledby references, and that
+        // attribute splits on whitespace — a space would silently cost the series card
+        // its accessible name.
+        if (!/^[a-z0-9][a-z0-9-]*$/i.test(String(definition.id || ''))) {
+            fail(`${CONFIG.SERIES_SOURCE}: series id "${definition.id}" must be letters, digits and hyphens (it is used as a DOM id)`);
+        }
     }
 
     const sourceIds = source.map((entry) => entry.id);
@@ -181,6 +188,16 @@ function checkSeriesFreshness(generated, data) {
             } else {
                 stale(`${label}: layout lists "${item.file}", missing from ${CONFIG.SERIES_DATA}`);
             }
+        }
+
+        // alt exists precisely because two frames can share a caption; a copy-pasted
+        // layout block would otherwise reintroduce two identically-named buttons.
+        const seenAlts = new Map();
+        for (const item of definition.layout || []) {
+            if (!item.alt) continue;
+            const first = seenAlts.get(item.alt);
+            if (first) fail(`${label}: "${item.file}" and "${first}" share the alt text "${item.alt}"`);
+            else seenAlts.set(item.alt, item.file);
         }
 
         const expected = (definition.layout || []).filter((item) => members.has(norm(item.file)));

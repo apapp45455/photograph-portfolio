@@ -306,6 +306,9 @@ for (const series of seriesData) {
                 await expect(item).toHaveClass(new RegExp(`project-item--${photo.span}`));
                 await expect(item.locator('img')).toHaveAttribute('src', /^\.\.\/images\//);
                 if (photo.caption) await expect(item.locator('.project-caption')).toHaveText(photo.caption);
+                // Hand-written alt, not the caption and not the filename: two frames can
+                // share a caption, which would give two controls the same name.
+                if (photo.alt) await expect(item.locator('img')).toHaveAttribute('alt', photo.alt);
             }
 
             await page.evaluate(async () => {
@@ -348,6 +351,16 @@ for (const series of seriesData) {
             await expect(back).toHaveAttribute('href', /index\.html/);
             await back.click();
             await expect(page.locator('#gallery-container .gallery-item-wrapper').first()).toBeVisible();
+        });
+
+        test('every tile has a distinct accessible name', async ({ page }) => {
+            await page.goto(url);
+
+            const names = await page.locator('.project-item img').evaluateAll(
+                (nodes) => nodes.map((img) => img.getAttribute('alt'))
+            );
+            expect(names.filter(Boolean)).toHaveLength(names.length);
+            expect(new Set(names).size).toBe(names.length);
         });
 
         test('hero facts are filled from the manifest, not left hand-typed', async ({ page }) => {
