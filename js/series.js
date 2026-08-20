@@ -62,7 +62,9 @@ export class SeriesCardRenderer {
       const source = document.createElement("source");
       source.type = type;
       source.srcset = getVersionSrcset(series.cover.versions, format);
-      source.sizes = `(max-width: ${this.breakpoints.TABLET}px) 100vw, 55vw`; // matches the single-column switch in style.css
+      // Real boxes, not round ones: stacked below TABLET (the same switch style.css
+      // uses), then 1.15fr of a content column that stops at 1400 - 40 = 1360px.
+      source.sizes = `(max-width: ${this.breakpoints.TABLET}px) calc(100vw - 40px), (max-width: 1440px) 55vw, 782px`;
       picture.appendChild(source);
     }
 
@@ -152,9 +154,17 @@ export class SeriesShowcase {
       return;
     }
 
-    const fragment = document.createDocumentFragment();
-    this.data.forEach((series, index) => fragment.appendChild(this.renderer.render(series, index)));
-    this.container.replaceChildren(fragment);
+    try {
+      const fragment = document.createDocumentFragment();
+      this.data.forEach((series, index) => fragment.appendChild(this.renderer.render(series, index)));
+      this.container.replaceChildren(fragment);
+    } catch (error) {
+      // Malformed data (a cover with no versions, say) must degrade to a page without
+      // the band, not reject out of the DOMContentLoaded handler as an unhandled
+      // rejection — which is what the load-failure catch above already intends.
+      console.error("Error rendering series:", error);
+      if (this.section) this.section.hidden = true;
+    }
   }
 }
 

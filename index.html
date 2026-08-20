@@ -39,7 +39,9 @@
       <!-- 專題（系列作品）— 卡片由 js/series.js 依 js/series-data.json 產生 -->
       <section id="series" class="series-section">
         <h2 class="section-heading">Series</h2>
-        <div class="series-list" id="series-list"></div>
+        <!-- --series-count reserves the band's height before JS inserts the cards;
+             scripts/check-gallery.js fails if it disagrees with js/series-data.json. -->
+        <div class="series-list" id="series-list" style="--series-count: 1"></div>
       </section>
 
       <section class="work-section">

@@ -18,6 +18,7 @@ const fs = require('fs');
 const path = require('path');
 
 const CONFIG = {
+    HOME_PAGE: 'index.html',
     IMAGES: 'images',
     OPTIMIZED: 'images/optimized',
     DATA: 'js/gallery-data.json',
@@ -83,6 +84,12 @@ async function verifyPixels(data) {
                     const meta = await sharp(filePath).metadata();
                     if (meta.width !== version.width) {
                         fail(`${filePath}: ${meta.width}px wide, manifest declares ${version.width}px (${tier})`);
+                    }
+                    // Height too: a re-cropped source keeps the same tier width, so width
+                    // alone cannot tell a stale derivative from a current one.
+                    const expectedHeight = Math.round(entry.height * (version.width / entry.width));
+                    if (Math.abs(meta.height - expectedHeight) > 1) {
+                        fail(`${filePath}: ${meta.width}x${meta.height}, but ${entry.filename} is ${entry.width}x${entry.height} — run \`npm run build:gallery\``);
                     }
                 } catch (error) {
                     fail(`${filePath}: unreadable image (${error.message})`);
@@ -270,6 +277,18 @@ function checkSeries(data) {
         // The source-level form of this rule lives in checkSeriesSource: the generator
         // always appends unlisted members, so comparing against the generated file
         // could only ever catch a hand-edit — which the regenerate-and-diff gate covers.
+    }
+
+    // index.html reserves the band's height before JS inserts the cards. It cannot read
+    // the manifest, so the count is declared there — and would silently under-reserve
+    // (reintroducing the shift it was added to prevent) the moment a series is added.
+    if (fs.existsSync(CONFIG.HOME_PAGE)) {
+        const declared = /--series-count:\s*(\d+)/.exec(fs.readFileSync(CONFIG.HOME_PAGE, 'utf8'));
+        if (!declared) {
+            fail(`${CONFIG.HOME_PAGE}: #series-list has no --series-count to reserve space with`);
+        } else if (Number(declared[1]) !== series.length) {
+            fail(`${CONFIG.HOME_PAGE}: --series-count is ${declared[1]}, ${CONFIG.SERIES_DATA} has ${series.length} series`);
+        }
     }
 
     console.log(`Checked ${series.length} series covering ${data.filter((e) => e.series).length} photos.`);

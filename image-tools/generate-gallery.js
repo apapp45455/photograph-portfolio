@@ -72,17 +72,30 @@ class ImageProcessor {
         return results;
     }
 
+    /**
+     * A fresh clone gives every file the same checkout time, so this only fires for a
+     * source that was genuinely touched after its derivative was written.
+     */
+    static isStale(sourcePath, outputPath) {
+        if (!fs.existsSync(outputPath)) return true;
+        return fs.statSync(sourcePath).mtimeMs > fs.statSync(outputPath).mtimeMs;
+    }
+
     static async generateVersions(filePath, baseName, sizeName, targetWidth) {
         const jpgName = `${baseName}-${sizeName}.jpg`;
         const webpName = `${baseName}-${sizeName}.webp`;
         const jpgPath = path.join(CONFIG.DIRECTORIES.OPTIMIZED, jpgName);
         const webpPath = path.join(CONFIG.DIRECTORIES.OPTIMIZED, webpName);
 
-        if (!fs.existsSync(webpPath)) {
+        // Skipping on existence alone means a re-cropped photo keeps its old derivatives:
+        // the manifest picks up the new dimensions while images/optimized/ still serves
+        // the old frame, and nothing downstream can tell, because every tier's width is
+        // min(tier, width) either way.
+        if (ImageProcessor.isStale(filePath, webpPath)) {
             await sharp(filePath).rotate().resize(targetWidth).webp({ quality: CONFIG.QUALITY }).toFile(webpPath);
         }
 
-        if (!fs.existsSync(jpgPath)) {
+        if (ImageProcessor.isStale(filePath, jpgPath)) {
             await sharp(filePath).rotate().resize(targetWidth).jpeg({ quality: CONFIG.QUALITY, mozjpeg: true }).toFile(jpgPath);
         }
 

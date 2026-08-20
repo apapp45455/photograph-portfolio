@@ -127,6 +127,10 @@ export class Gallery {
     const wrapper = target.closest(`.${this.classes.GALLERY_ITEM_WRAPPER}`);
     if (!wrapper || wrapper.dataset.index === undefined) return false;
 
+    // The wrapper is a <figure> on series pages, so without this a click on the
+    // caption would open the lightbox and its text could never be selected.
+    if (!target.closest("picture")) return false;
+
     this.eventTarget.dispatchEvent(new CustomEvent(this.openEventName, {
       detail: { index: parseInt(wrapper.dataset.index, 10) },
     }));

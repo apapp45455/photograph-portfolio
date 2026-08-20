@@ -372,6 +372,15 @@ for (const series of seriesData) {
             await expect(page.locator('[data-series-field="period"]')).toContainText(series.period);
         });
 
+        test('the caption is selectable text, not part of the control', async ({ page }) => {
+            await page.goto(url);
+
+            const captioned = page.locator('.project-item').filter({ has: page.locator('.project-caption') }).first();
+            await captioned.locator('.project-caption').click();
+
+            await expect(page.locator('#lightbox')).not.toHaveClass(/active/);
+        });
+
         test('keeps focus inside the lightbox while it is open', async ({ page }) => {
             await page.goto(url);
             await page.locator('.project-item').first().click();
