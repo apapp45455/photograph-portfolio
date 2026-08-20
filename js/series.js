@@ -68,7 +68,7 @@ export class SeriesCardRenderer {
     img.width = series.cover.width;
     img.height = series.cover.height;
     if (index === 0) {
-      img.fetchPriority = "high";
+      img.setAttribute("fetchpriority", "high");
     } else {
       img.loading = "lazy";
     }

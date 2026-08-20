@@ -259,7 +259,7 @@ for (const series of seriesData) {
             // width/height are typed in, not generated. Tie both to the manifest so a
             // re-crop or a changed `cover` cannot leave it silently stale.
             const coverBase = series.cover.filename.replace(/\.[^/.]+$/, '');
-            expect(await hero.getAttribute('src')).toContain(coverBase);
+            expect(await hero.getAttribute('src')).toContain(`${coverBase}-`);
 
             const declared = await hero.evaluate((img) => Number(img.getAttribute('width')) / Number(img.getAttribute('height')));
             expect(declared).toBeCloseTo(series.cover.aspectRatio, 2);
@@ -271,6 +271,27 @@ for (const series of seriesData) {
             await expect(back).toHaveAttribute('href', /index\.html/);
             await back.click();
             await expect(page.locator('#gallery-container .gallery-item-wrapper').first()).toBeVisible();
+        });
+
+        test('hero facts are filled from the manifest, not left hand-typed', async ({ page }) => {
+            await page.goto(url);
+
+            await expect(page.locator('[data-series-field="count"]')).toHaveText(String(series.count));
+            await expect(page.locator('[data-series-field="period"]')).toContainText(series.period);
+        });
+
+        test('keeps focus inside the lightbox while it is open', async ({ page }) => {
+            await page.goto(url);
+            await page.locator('.project-item').first().click();
+            await expect(page.locator('#lightbox')).toHaveClass(/active/);
+
+            // aria-modal claims the rest of the page is inert; Tab must not escape it.
+            for (let i = 0; i < 5; i += 1) {
+                await page.keyboard.press('Tab');
+                await expect
+                    .poll(() => page.evaluate(() => document.getElementById('lightbox').contains(document.activeElement)))
+                    .toBe(true);
+            }
         });
 
         test('the lightbox opens on the series photos', async ({ page }) => {

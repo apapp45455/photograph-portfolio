@@ -26,6 +26,8 @@ class ProjectApp {
       return;
     }
 
+    ProjectApp.fillSeriesFields(series);
+
     const gallery = new Gallery({
       container,
       dataSource: new GalleryDataSource(withAssetBase(assetBase, CONFIG.PATHS.GALLERY_DATA), assetBase),
@@ -41,6 +43,24 @@ class ProjectApp {
 
     await gallery.init();
     mountLightbox(gallery.data);
+  }
+
+  /**
+   * The hero copy is hand-written per series, but anything the manifest already
+   * knows is filled in from it — a sixth photo would otherwise leave "Frames 5"
+   * on the page with lint, check-gallery and e2e all still green.
+   */
+  static fillSeriesFields(series) {
+    const values = {
+      period: `Series — ${series.period}`,
+      count: String(series.count),
+    };
+
+    for (const [field, value] of Object.entries(values)) {
+      document.querySelectorAll(`[data-series-field="${field}"]`).forEach((el) => {
+        el.textContent = value;
+      });
+    }
   }
 
   static async findSeries(seriesId, assetBase) {
