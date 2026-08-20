@@ -25,21 +25,25 @@ export class GalleryItemRenderer {
 
   render(item, index) {
     const wrapper = createElement("div", { className: this.classes.GALLERY_ITEM_WRAPPER });
-    this.markOpenable(wrapper, index);
-    wrapper.appendChild(this.createPicture(item));
+    const picture = this.createPicture(item);
+    this.markOpenable(wrapper, picture, index);
+    wrapper.appendChild(picture);
     return wrapper;
   }
 
   /**
    * A tile opens the lightbox, so it has to be reachable and operable by keyboard —
    * otherwise the dialog is a properly built one that no keyboard user can enter.
-   * The accessible name comes from the contained <img>'s alt.
+   *
+   * The control is the <picture>, not the wrapper: `button` is name-from-content, so
+   * putting it on a <figure> would fold the caption into the name and discard the
+   * figure/figcaption relationship. Here the name is just the <img>'s alt.
+   * `dataset.index` stays on the wrapper, which is what click delegation looks up.
    */
-  markOpenable(element, index) {
-    element.dataset.index = index;
-    element.tabIndex = 0;
-    element.setAttribute("role", "button");
-    return element;
+  markOpenable(wrapper, control, index) {
+    wrapper.dataset.index = index;
+    control.tabIndex = 0;
+    control.setAttribute("role", "button");
   }
 
   createPicture(item) {

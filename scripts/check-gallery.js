@@ -111,6 +111,27 @@ function checkSeriesFreshness(generated, data) {
 
     const stale = (msg) => fail(`${msg} — run \`npm run build:gallery\``);
 
+    // The generator assigns first-match-wins across all definitions, so the patterns
+    // have to be applied as one ordered list. Testing each in isolation reports false
+    // staleness the moment two overlap — and no rebuild can clear it.
+    const patterns = [];
+    for (const definition of source) {
+        try {
+            patterns.push({ id: definition.id, pattern: new RegExp(definition.match) });
+        } catch (error) {
+            fail(`series "${definition.id}": match "${definition.match}" is not a valid regular expression (${error.message})`);
+            return;
+        }
+    }
+
+    for (const entry of data) {
+        const hit = patterns.find((candidate) => candidate.pattern.test(norm(entry.filename)));
+        const expected = hit ? hit.id : null;
+        if ((entry.series ?? null) !== expected) {
+            stale(`"${entry.filename}" is tagged ${entry.series ? `"${entry.series}"` : 'with no series'}, ${CONFIG.SERIES_SOURCE} resolves it to ${expected ? `"${expected}"` : 'no series'}`);
+        }
+    }
+
     const sourceIds = source.map((entry) => entry.id);
     const generatedIds = generated.map((entry) => entry.id);
     if (sourceIds.join('\u0000') !== generatedIds.join('\u0000')) {
@@ -130,25 +151,6 @@ function checkSeriesFreshness(generated, data) {
 
         if (built.cover && norm(built.cover.filename) !== norm(definition.cover)) {
             stale(`${label}: cover is "${built.cover.filename}", ${CONFIG.SERIES_SOURCE} says "${definition.cover}"`);
-        }
-
-        // `match` decides which photos leave the home grid, and checkSeries only ever
-        // sees the previous run's answer via entry.series — so re-apply the regex here.
-        // Without this, editing `match` and skipping the rebuild is invisible to CI.
-        let pattern;
-        try {
-            pattern = new RegExp(definition.match);
-        } catch (error) {
-            fail(`${label}: match "${definition.match}" is not a valid regular expression (${error.message})`);
-            return;
-        }
-        for (const entry of data) {
-            const matches = pattern.test(norm(entry.filename));
-            if (matches && entry.series !== definition.id) {
-                stale(`${label}: "${entry.filename}" matches ${definition.match} but is tagged "${entry.series}"`);
-            } else if (!matches && entry.series === definition.id) {
-                stale(`${label}: "${entry.filename}" is tagged with it but no longer matches ${definition.match}`);
-            }
         }
 
         // A layout entry that resolves to nothing is dropped at build time with a

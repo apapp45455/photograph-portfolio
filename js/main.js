@@ -27,8 +27,12 @@ class App {
       select: selectUngrouped,
     });
 
-    await Promise.all([gallery.init(), seriesRendered]);
+    // The lightbox is mounted as soon as the grid exists: the tiles are visible and
+    // focusable at that point, so gating the mount on series-data.json would leave
+    // them silently inert if that request were slow.
+    await gallery.init();
     mountLightbox(gallery.data);
+    await seriesRendered;
   }
 
   static renderSeries() {

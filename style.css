@@ -292,7 +292,9 @@ main {
   padding-bottom: 0.4rem;
 }
 
-@media (max-width: 900px) {
+/* 1024px, not an arbitrary 900: it has to be the same breakpoint the cover's
+   `sizes` attribute switches at, or the browser picks a tier for the wrong width. */
+@media (max-width: 1024px) {
   .series-card {
     grid-template-columns: 1fr;
   }

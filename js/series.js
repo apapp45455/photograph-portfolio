@@ -62,7 +62,7 @@ export class SeriesCardRenderer {
       const source = document.createElement("source");
       source.type = type;
       source.srcset = getVersionSrcset(series.cover.versions, format);
-      source.sizes = `(max-width: ${this.breakpoints.TABLET}px) 100vw, 55vw`;
+      source.sizes = `(max-width: ${this.breakpoints.TABLET}px) 100vw, 55vw`; // matches the single-column switch in style.css
       picture.appendChild(source);
     }
 
@@ -167,8 +167,9 @@ export class ProjectItemRenderer extends GalleryItemRenderer {
     const figure = createElement("figure", {
       className: `${this.classes.GALLERY_ITEM_WRAPPER} ${this.classes.PROJECT_ITEM} ${this.classes.PROJECT_ITEM}--${item.span}`,
     });
-    this.markOpenable(figure, index);
-    figure.appendChild(this.createPicture(item));
+    const picture = this.createPicture(item);
+    this.markOpenable(figure, picture, index);
+    figure.appendChild(picture);
 
     if (item.caption) {
       figure.appendChild(createElement("figcaption", {

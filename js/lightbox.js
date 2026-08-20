@@ -44,7 +44,9 @@ export class LightboxView {
   showItem(item) {
     this.applyReservedMediaSize(item);
     this.elements.img.src = getLargestVersionUrl(item.versions, "jpg") || item.original;
-    this.elements.caption.textContent = formatPhotoTitle(item.filename);
+    // Series photos already carry an editorial caption; fall back to the filename only
+    // for the home grid, which has none.
+    this.elements.caption.textContent = item.caption || formatPhotoTitle(item.filename);
     this.triggerFadeAnimation();
   }
 

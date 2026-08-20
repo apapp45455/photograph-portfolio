@@ -156,7 +156,9 @@ test.describe('lightbox', () => {
     test('a thumbnail can be reached and opened from the keyboard', async ({ page }) => {
         await page.goto('/');
 
-        const first = page.locator('#gallery-container .gallery-item-wrapper').first();
+        // The control is the <picture>: on a <figure> tile, role="button" would fold the
+        // caption into the accessible name and drop the figure/figcaption relationship.
+        const first = page.locator('#gallery-container .gallery-item-wrapper picture').first();
         await expect(first).toHaveAttribute('role', 'button');
 
         await first.focus();
@@ -167,7 +169,7 @@ test.describe('lightbox', () => {
     test('keeps focus inside the lightbox, and returns it on close', async ({ page }) => {
         await page.goto('/');
 
-        const first = page.locator('#gallery-container .gallery-item-wrapper').first();
+        const first = page.locator('#gallery-container .gallery-item-wrapper picture').first();
         await first.focus();
         await page.keyboard.press('Enter');
         await expect(page.locator('#lightbox')).toHaveClass(/active/);
@@ -182,7 +184,7 @@ test.describe('lightbox', () => {
 
         await page.keyboard.press('Escape');
         await expect
-            .poll(() => page.evaluate(() => document.activeElement.classList.contains('gallery-item-wrapper')))
+            .poll(() => page.evaluate(() => document.activeElement.closest('.gallery-item-wrapper') !== null))
             .toBe(true);
     });
 
@@ -334,6 +336,12 @@ for (const series of seriesData) {
             const lightbox = page.locator('#lightbox');
             await expect(lightbox).toHaveClass(/active/);
             await expect(page.locator('#lightbox-img')).toHaveAttribute('src', /^\.\.\/images\/optimized\/.*-large\.jpg$/);
+
+            // A series photo carries an editorial caption; the lightbox must use it
+            // rather than falling back to the filename.
+            if (series.photos[0].caption) {
+                await expect(page.locator('#lightbox-caption')).toHaveText(series.photos[0].caption);
+            }
 
             const metadata = page.locator('#lightbox-metadata');
             await expect(metadata.locator('.metadata-grid, .metadata-empty, .metadata-error'))
