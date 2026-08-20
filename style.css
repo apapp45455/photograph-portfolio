@@ -167,6 +167,18 @@ main {
   }
 }
 
+/* Keyboard focus — the tiles only became focusable with the series work, and the
+   UA default ring is close to invisible over a full-bleed photograph. */
+.gallery-item-wrapper:focus-visible,
+.series-card:focus-visible,
+.nav-btn:focus-visible,
+.close-btn:focus-visible,
+.site-nav a:focus-visible,
+.project-back a:focus-visible {
+  outline: 2px solid var(--accent-color);
+  outline-offset: 3px;
+}
+
 /* Section headings — shared by the home sections and the series band */
 .section-heading {
   font-family: var(--font-heading);

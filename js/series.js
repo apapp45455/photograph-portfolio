@@ -43,9 +43,10 @@ export class SeriesCardRenderer {
   render(series, index = 0) {
     const card = createElement("a", { className: this.classes.SERIES_CARD });
     card.href = series.page;
-    // No aria-label: it would replace the whole subtree for name computation, hiding
-    // the period, titleZh and summary — the editorial copy the card exists to carry.
-    // The visible text already names the link ("Japan · Tōhoku … View series · 5 photographs").
+    // Not aria-label (it would hide the card's copy from AT) and not the bare subtree
+    // (that names the link with the whole ~90-character summary, which also fills the
+    // links rotor). Point at the title and the CTA: short name, copy still readable.
+    card.setAttribute("aria-labelledby", `${SeriesCardRenderer.titleId(series)} ${SeriesCardRenderer.ctaId(series)}`);
 
     card.appendChild(this.createCover(series, index));
     card.appendChild(this.createBody(series));
@@ -85,16 +86,27 @@ export class SeriesCardRenderer {
     return figure;
   }
 
+  static titleId(series) {
+    return `series-${series.id}-title`;
+  }
+
+  static ctaId(series) {
+    return `series-${series.id}-cta`;
+  }
+
   createBody(series) {
     const body = createElement("div", { className: "series-card-body" });
     body.appendChild(createElement("p", {
       className: "series-card-eyebrow",
       textContent: `Series — ${series.period}`,
     }));
-    body.appendChild(createElement("h2", {
+
+    const title = createElement("h2", {
       className: "series-card-title",
       textContent: series.title,
-    }));
+    });
+    title.id = SeriesCardRenderer.titleId(series);
+    body.appendChild(title);
     body.appendChild(createElement("p", {
       className: "series-card-subtitle",
       textContent: series.titleZh,
@@ -103,10 +115,13 @@ export class SeriesCardRenderer {
       className: "series-card-summary",
       textContent: series.summary,
     }));
-    body.appendChild(createElement("span", {
+    const cta = createElement("span", {
       className: "series-card-cta",
       textContent: `View series · ${series.count} photographs`,
-    }));
+    });
+    cta.id = SeriesCardRenderer.ctaId(series);
+    body.appendChild(cta);
+
     return body;
   }
 }

@@ -100,7 +100,7 @@ async function verifyPixels(data) {
  * copy with lint, check:gallery and the whole e2e suite green (e2e derives its
  * expectations from the generated file, so it asserts the stale value).
  */
-function checkSeriesFreshness(generated) {
+function checkSeriesFreshness(generated, data) {
     let source;
     try {
         source = JSON.parse(fs.readFileSync(CONFIG.SERIES_SOURCE, 'utf8')).series || [];
@@ -132,10 +132,44 @@ function checkSeriesFreshness(generated) {
             stale(`${label}: cover is "${built.cover.filename}", ${CONFIG.SERIES_SOURCE} says "${definition.cover}"`);
         }
 
-        // Entries naming a photo that no longer exists are dropped at build time
-        // (with a warning), so compare only the ones that survived.
-        const built_ = new Set(built.photos.map((photo) => norm(photo.filename)));
-        const expected = (definition.layout || []).filter((item) => built_.has(norm(item.file)));
+        // `match` decides which photos leave the home grid, and checkSeries only ever
+        // sees the previous run's answer via entry.series — so re-apply the regex here.
+        // Without this, editing `match` and skipping the rebuild is invisible to CI.
+        let pattern;
+        try {
+            pattern = new RegExp(definition.match);
+        } catch (error) {
+            fail(`${label}: match "${definition.match}" is not a valid regular expression (${error.message})`);
+            return;
+        }
+        for (const entry of data) {
+            const matches = pattern.test(norm(entry.filename));
+            if (matches && entry.series !== definition.id) {
+                stale(`${label}: "${entry.filename}" matches ${definition.match} but is tagged "${entry.series}"`);
+            } else if (!matches && entry.series === definition.id) {
+                stale(`${label}: "${entry.filename}" is tagged with it but no longer matches ${definition.match}`);
+            }
+        }
+
+        // A layout entry that resolves to nothing is dropped at build time with a
+        // warning — but CI never runs the build, so without this it is a silent no-op.
+        const members = new Set(built.photos.map((photo) => norm(photo.filename)));
+        const byFilename = new Map(data.map((entry) => [norm(entry.filename), entry]));
+
+        for (const item of definition.layout || []) {
+            if (members.has(norm(item.file))) continue;
+
+            const entry = byFilename.get(norm(item.file));
+            if (!entry) {
+                fail(`${label}: layout lists "${item.file}", which is not in ${CONFIG.IMAGES}/`);
+            } else if (entry.series !== definition.id) {
+                fail(`${label}: layout lists "${item.file}", which belongs to series "${entry.series}"`);
+            } else {
+                stale(`${label}: layout lists "${item.file}", missing from ${CONFIG.SERIES_DATA}`);
+            }
+        }
+
+        const expected = (definition.layout || []).filter((item) => members.has(norm(item.file)));
 
         expected.forEach((item, position) => {
             const photo = built.photos[position];
@@ -183,7 +217,7 @@ function checkSeries(data) {
         return;
     }
 
-    checkSeriesFreshness(series);
+    checkSeriesFreshness(series, data);
 
     const knownIds = new Set(series.map((entry) => entry.id));
     const byFilename = new Map(data.map((entry) => [norm(entry.filename), entry]));
