@@ -26,6 +26,7 @@ npm run build:gallery
 npm run lint                # eslint + stylelint + html-validate
 npm run check:gallery       # manifest vs files on disk (fast)
 npm run check:gallery:deep  # also decodes every image with sharp
+npm run check:generated     # re-runs the generator and diffs — the staleness gate
 npm run test:e2e            # Playwright, serves the site itself
 npm test                    # lint + check:gallery + test:e2e
 ```
@@ -87,7 +88,7 @@ First-time Playwright setup: `npx playwright install chromium`.
 | Job | What it guards |
 |-----|----------------|
 | `lint` | ESLint (`eslint.config.js`: `js/` = browser ESM, `image-tools/`+`scripts/` = Node CJS), Stylelint (`.stylelintrc.json`), html-validate (`.htmlvalidate.json`) |
-| `gallery` | `scripts/check-gallery.js --deep` (files, dimensions, orphans, and the series rules the generator does not enforce) **plus a re-run of `generate-gallery.js` followed by `git diff --exit-code`** — that diff, not a hand-written comparison, is what catches a `series.json` edit committed without a rebuild |
+| `gallery` | `scripts/check-gallery.js --deep` (files, dimensions, orphans, and the series rules the generator does not enforce) **plus `npm run check:generated`, which re-runs `generate-gallery.js` and diffs the result** (the same script `npm test` runs, so the local suite is not green on the one change the gate exists to catch) — that diff, not a hand-written comparison, is what catches a `series.json` edit committed without a rebuild |
 | `e2e` | `tests/gallery.spec.js` on desktop + mobile viewports: home grid count matches the ungrouped manifest entries, all images decode, every referenced asset returns 200, lightbox open/nav/close, EXIF resolves, stale-metadata guard, zero unexpected console errors — plus, per series, one card on the home page and a series page whose photos match the layout (order, span, caption, `../`-rebased paths) |
 | `lighthouse` | `.lighthouserc.json` budget on a locally served copy of the home page **and** `projects/japan.html` (performance ≥ 0.5, a11y / best-practices / SEO ≥ 0.9) |
 

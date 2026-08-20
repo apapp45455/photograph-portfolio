@@ -136,6 +136,16 @@ function checkSeriesSource(data) {
             fail(`${label}: match "${definition.match}" is not a valid regular expression (${error.message})`);
         }
 
+        // The generator appends a member missing from `layout` (dropping it would erase
+        // the photo from the site) and only warns — inside a CI step designed to be
+        // silent. Without this, a new 日本_ photo ships uncaptioned at the bottom with
+        // an alt derived from its filename, and all four jobs stay green.
+        const laidOut = new Set((definition.layout || []).map((item) => norm(item.file)));
+        for (const entry of data) {
+            if (entry.series !== definition.id || laidOut.has(norm(entry.filename))) continue;
+            fail(`${label}: "${entry.filename}" belongs to it but has no layout entry — it would ship at the end without a caption`);
+        }
+
         const seenAlts = new Map();
         for (const item of definition.layout || []) {
             if (!item.file) {
@@ -253,12 +263,9 @@ function checkSeries(data) {
             }
         }
 
-        // A tagged photo that no page lists would vanish from the site entirely.
-        for (const member of members) {
-            if (!listed.has(norm(member.filename))) {
-                fail(`${label}: "${member.filename}" is tagged with it but not laid out on the page`);
-            }
-        }
+        // The source-level form of this rule lives in checkSeriesSource: the generator
+        // always appends unlisted members, so comparing against the generated file
+        // could only ever catch a hand-edit — which the regenerate-and-diff gate covers.
     }
 
     console.log(`Checked ${series.length} series covering ${data.filter((e) => e.series).length} photos.`);

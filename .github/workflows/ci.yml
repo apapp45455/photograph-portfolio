@@ -62,14 +62,7 @@ jobs:
       # field-by-field comparison goes stale the moment series.json grows a field.
       # Existing derivatives are skipped, so this only rewrites the two JSON files.
       - name: Manifests match what the generator produces
-        run: |
-          npm run build:gallery
-          git diff --exit-code -- js/gallery-data.json js/series-data.json
-          if [ -n "$(git status --porcelain -- images/optimized)" ]; then
-            echo "generate-gallery.js produced derivatives that are not committed:"
-            git status --porcelain -- images/optimized
-            exit 1
-          fi
+        run: npm run check:generated
 
   e2e:
     name: Browser tests (Playwright)
