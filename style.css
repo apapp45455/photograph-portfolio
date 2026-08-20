@@ -169,7 +169,6 @@ main {
 
 /* Keyboard focus — the tiles only became focusable with the series work, and the
    UA default ring is close to invisible over a full-bleed photograph. */
-.gallery-item-wrapper:focus-visible,
 .series-card:focus-visible,
 .nav-btn:focus-visible,
 .close-btn:focus-visible,
@@ -177,6 +176,13 @@ main {
 .project-back a:focus-visible {
   outline: 2px solid var(--accent-color);
   outline-offset: 3px;
+}
+
+/* The tile's focusable element is the <picture>, not the wrapper — and the wrapper
+   is overflow:hidden, so the ring has to sit inside rather than outside it. */
+.gallery-item-wrapper picture:focus-visible {
+  outline: 2px solid var(--accent-color);
+  outline-offset: -4px;
 }
 
 /* Section headings — shared by the home sections and the series band */

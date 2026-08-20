@@ -24,6 +24,10 @@ class App {
       }),
       classes: CONFIG.CLASSES,
       openEventName: CONFIG.EVENTS.OPEN_LIGHTBOX,
+      // Note: a photo tagged with a series is dropped from this grid on the strength of
+      // gallery-data.json alone, so if series-data.json fails to load it is reachable
+      // from nowhere. Both manifests are served from the same origin and check-gallery
+      // keeps them in step, so they realistically fail together — accepted, not missed.
       select: selectUngrouped,
     });
 

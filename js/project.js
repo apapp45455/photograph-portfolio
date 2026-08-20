@@ -18,6 +18,15 @@ class ProjectApp {
     const container = document.querySelector(CONFIG.SELECTORS.GALLERY);
     if (!container || !seriesId) return;
 
+    // Kick the gallery manifest off before awaiting the series one: Gallery does not
+    // touch its dataSource until init(), so the two requests overlap instead of
+    // chaining module eval → series → gallery → first image.
+    const galleryData = new GalleryDataSource(
+      withAssetBase(assetBase, CONFIG.PATHS.GALLERY_DATA),
+      assetBase
+    ).load();
+    galleryData.catch(() => {}); // handled by Gallery.init below
+
     const series = await ProjectApp.findSeries(seriesId, assetBase);
     if (!series) {
       console.error(`Unknown series: ${seriesId}`);
@@ -30,7 +39,7 @@ class ProjectApp {
 
     const gallery = new Gallery({
       container,
-      dataSource: new GalleryDataSource(withAssetBase(assetBase, CONFIG.PATHS.GALLERY_DATA), assetBase),
+      dataSource: { load: () => galleryData },
       itemRenderer: new ProjectItemRenderer({
         breakpoints: CONFIG.BREAKPOINTS,
         classes: CONFIG.CLASSES,

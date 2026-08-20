@@ -166,6 +166,41 @@ test.describe('lightbox', () => {
         await expect(page.locator('#lightbox')).toHaveClass(/active/);
     });
 
+    test('tabbing to a tile shows a focus ring', async ({ page }) => {
+        await page.goto('/');
+
+        // Real Tab presses, not .focus(): :focus-visible depends on the interaction
+        // being a keyboard one, and a programmatic focus would pass even if the rule
+        // selected an element that never takes focus.
+        let ring = null;
+        for (let i = 0; i < 40 && !ring; i += 1) {
+            await page.keyboard.press('Tab');
+            ring = await page.evaluate(() => {
+                const el = document.activeElement;
+                if (!el || !el.closest('#gallery-container .gallery-item-wrapper')) return null;
+                const style = getComputedStyle(el);
+                return {
+                    focusVisible: el.matches(':focus-visible'),
+                    width: style.outlineWidth,
+                    outlineStyle: style.outlineStyle,
+                    offset: style.outlineOffset,
+                };
+            });
+        }
+
+        expect(ring, 'Tab never reached a gallery tile').not.toBeNull();
+        expect(ring.focusVisible).toBe(true);
+
+        // 'solid' rather than the UA default 'auto': asserting merely that *an* outline
+        // exists would pass on the browser's own ring even when our rule selects an
+        // element that never takes focus.
+        expect(ring.outlineStyle).toBe('solid');
+        expect(parseFloat(ring.width)).toBeGreaterThan(0);
+
+        // The tile is inside an overflow:hidden wrapper, so an outward ring is clipped.
+        expect(parseFloat(ring.offset)).toBeLessThan(0);
+    });
+
     test('keeps focus inside the lightbox, and returns it on close', async ({ page }) => {
         await page.goto('/');
 

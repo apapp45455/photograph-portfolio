@@ -101,7 +101,7 @@ export class SeriesCardRenderer {
       textContent: `Series — ${series.period}`,
     }));
 
-    const title = createElement("h2", {
+    const title = createElement("h3", {
       className: "series-card-title",
       textContent: series.title,
     });
@@ -163,6 +163,13 @@ export class SeriesShowcase {
  * so each photo can carry a caption and claim a full or half row.
  */
 export class ProjectItemRenderer extends GalleryItemRenderer {
+  /** The hand-written caption beats a de-underscored filename as alt text. */
+  createImage(item) {
+    const img = super.createImage(item);
+    if (item.caption) img.alt = item.caption;
+    return img;
+  }
+
   render(item, index) {
     const figure = createElement("figure", {
       className: `${this.classes.GALLERY_ITEM_WRAPPER} ${this.classes.PROJECT_ITEM} ${this.classes.PROJECT_ITEM}--${item.span}`,

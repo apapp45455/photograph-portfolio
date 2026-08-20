@@ -39,7 +39,7 @@ const warn = (msg) => warnings.push(msg);
  * Unicode-normalise a path so NFD (macOS) and NFC (Linux/git) filenames compare equal.
  * The gallery uses CJK filenames, so this is not theoretical.
  */
-const norm = (p) => p.normalize('NFC');
+const norm = (p) => String(p == null ? '' : p).normalize('NFC');
 
 function listFiles(dir) {
     if (!fs.existsSync(dir)) {
@@ -132,6 +132,14 @@ function checkSeriesFreshness(generated, data) {
         }
     }
 
+    // Copy-pasting a series block and forgetting to change `id` yields two identical
+    // cards and duplicate DOM ids, which aria-labelledby then resolves to the first of.
+    const seenIds = new Set();
+    for (const definition of source) {
+        if (seenIds.has(definition.id)) fail(`${CONFIG.SERIES_SOURCE}: duplicate series id "${definition.id}"`);
+        seenIds.add(definition.id);
+    }
+
     const sourceIds = source.map((entry) => entry.id);
     const generatedIds = generated.map((entry) => entry.id);
     if (sourceIds.join('\u0000') !== generatedIds.join('\u0000')) {
@@ -159,6 +167,10 @@ function checkSeriesFreshness(generated, data) {
         const byFilename = new Map(data.map((entry) => [norm(entry.filename), entry]));
 
         for (const item of definition.layout || []) {
+            if (!item.file) {
+                fail(`${label}: a layout entry has no "file" key`);
+                continue;
+            }
             if (members.has(norm(item.file))) continue;
 
             const entry = byFilename.get(norm(item.file));
