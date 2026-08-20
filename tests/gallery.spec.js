@@ -185,8 +185,9 @@ test.describe('lightbox', () => {
                     outlineStyle: style.outlineStyle,
                     offset: style.outlineOffset,
                     tag: el.tagName,
-                    matchesImageBox: Math.abs(el.getBoundingClientRect().height
-                        - el.closest('.gallery-item-wrapper').querySelector('img').getBoundingClientRect().height) < 1,
+                    // The ring must cover the tile, not a collapsed inline box inside it.
+                    fillsTile: Math.abs(el.getBoundingClientRect().height
+                        - el.closest('.gallery-item-wrapper').getBoundingClientRect().height) < 1,
                 };
             });
         }
@@ -205,7 +206,7 @@ test.describe('lightbox', () => {
 
         // …and it is drawn on the photo itself, not on a box that merely contains it.
         expect(ring.tag).toBe('IMG');
-        expect(ring.matchesImageBox).toBe(true);
+        expect(ring.fillsTile).toBe(true);
     });
 
     test('keeps focus inside the lightbox, and returns it on close', async ({ page }) => {
@@ -397,6 +398,10 @@ for (const series of seriesData) {
             if (series.photos[0].caption) {
                 await expect(page.locator('#lightbox-caption')).toHaveText(series.photos[0].caption);
             }
+
+            // Every photo must announce as itself, not the static alt="Enlarged view".
+            await expect(page.locator('#lightbox-img'))
+                .toHaveAttribute('alt', series.photos[0].alt || series.photos[0].caption);
 
             const metadata = page.locator('#lightbox-metadata');
             await expect(metadata.locator('.metadata-grid, .metadata-empty, .metadata-error'))

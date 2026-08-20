@@ -46,7 +46,10 @@ export class LightboxView {
     this.elements.img.src = getLargestVersionUrl(item.versions, "jpg") || item.original;
     // Series photos already carry an editorial caption; fall back to the filename only
     // for the home grid, which has none.
-    this.elements.caption.textContent = item.caption || formatPhotoTitle(item.filename);
+    const label = item.caption || formatPhotoTitle(item.filename);
+    this.elements.caption.textContent = label;
+    // The static alt="Enlarged view" would otherwise name every photo identically.
+    this.elements.img.alt = item.alt || label;
     this.triggerFadeAnimation();
   }
 

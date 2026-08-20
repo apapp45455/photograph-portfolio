@@ -28,7 +28,7 @@ npm run check:gallery       # manifest vs files on disk (fast)
 npm run check:gallery:deep  # also decodes every image with sharp
 npm run check:generated     # re-runs the generator and diffs — the staleness gate
 npm run test:e2e            # Playwright, serves the site itself
-npm test                    # lint + check:gallery + test:e2e
+npm test                    # lint + check:gallery + check:generated + test:e2e
 ```
 
 First-time Playwright setup: `npx playwright install chromium`.
