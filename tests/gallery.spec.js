@@ -1,5 +1,9 @@
 const { test, expect } = require('@playwright/test');
 const galleryData = require('../js/gallery-data.json');
+const seriesData = require('../js/series-data.json');
+
+/** The home grid shows everything that is not part of a series; series pages show the rest. */
+const homePhotos = galleryData.filter((entry) => !entry.series);
 
 /**
  * Console noise that is expected and must not fail the suite.
@@ -25,12 +29,12 @@ function collectConsoleErrors(page) {
 }
 
 test.describe('gallery grid', () => {
-    test('renders one item per manifest entry, all images decoded', async ({ page }) => {
+    test('renders one item per ungrouped manifest entry, all images decoded', async ({ page }) => {
         const consoleErrors = collectConsoleErrors(page);
         await page.goto('/');
 
-        const items = page.locator('.gallery-item-wrapper');
-        await expect(items).toHaveCount(galleryData.length);
+        const items = page.locator('#gallery-container .gallery-item-wrapper');
+        await expect(items).toHaveCount(homePhotos.length);
 
         // Images are loading="lazy" — scroll the whole page so all of them start loading.
         await page.evaluate(async () => {
@@ -43,10 +47,10 @@ test.describe('gallery grid', () => {
 
         // Every <img> must actually decode (catches wrong paths / corrupt files).
         await expect
-            .poll(async () => page.locator('.gallery-item').evaluateAll(
+            .poll(async () => page.locator('#gallery-container .gallery-item').evaluateAll(
                 (nodes) => nodes.filter((img) => img.complete && img.naturalWidth > 0).length
             ), { timeout: 30_000 })
-            .toBe(galleryData.length);
+            .toBe(homePhotos.length);
 
         expect(consoleErrors).toEqual([]);
     });
@@ -181,3 +185,96 @@ test.describe('page shell', () => {
         }
     });
 });
+
+test.describe('series', () => {
+    test('every photo is reachable from exactly one place', () => {
+        // A photo tagged with a series is dropped from the home grid, so it must be
+        // laid out on that series' page — otherwise it is on the site but unreachable.
+        const laidOut = new Set(seriesData.flatMap((series) => series.photos.map((p) => p.filename)));
+        const grouped = galleryData.filter((entry) => entry.series);
+
+        expect(grouped.map((entry) => entry.filename).filter((name) => !laidOut.has(name))).toEqual([]);
+        expect(homePhotos.length + grouped.length).toBe(galleryData.length);
+    });
+
+    test('the home page shows one entry card per series', async ({ page }) => {
+        await page.goto('/');
+
+        const cards = page.locator('.series-card');
+        await expect(cards).toHaveCount(seriesData.length);
+
+        for (const [index, series] of seriesData.entries()) {
+            const card = cards.nth(index);
+            await expect(card).toHaveAttribute('href', series.page);
+            await expect(card).toContainText(series.title);
+            await expect(card).toContainText(String(series.count));
+            await expect(card.locator('img')).toHaveAttribute('src', /\.jpg$/);
+        }
+    });
+});
+
+for (const series of seriesData) {
+    test.describe(`series page: ${series.id}`, () => {
+        const url = `/${series.page}`;
+
+        test('renders the series photos in layout order, all decoded', async ({ page }) => {
+            const consoleErrors = collectConsoleErrors(page);
+            await page.goto(url);
+
+            const items = page.locator('.project-item');
+            await expect(items).toHaveCount(series.photos.length);
+
+            // Paths in the manifest are root-relative; this page lives one level down.
+            for (const [index, photo] of series.photos.entries()) {
+                const item = items.nth(index);
+                await expect(item).toHaveClass(new RegExp(`project-item--${photo.span}`));
+                await expect(item.locator('img')).toHaveAttribute('src', /^\.\.\/images\//);
+                if (photo.caption) await expect(item.locator('.project-caption')).toHaveText(photo.caption);
+            }
+
+            await page.evaluate(async () => {
+                for (let y = 0; y < document.body.scrollHeight; y += window.innerHeight / 2) {
+                    window.scrollTo(0, y);
+                    await new Promise((resolve) => setTimeout(resolve, 100));
+                }
+            });
+
+            await expect
+                .poll(async () => page.locator('.project-item img').evaluateAll(
+                    (nodes) => nodes.filter((img) => img.complete && img.naturalWidth > 0).length
+                ), { timeout: 30_000 })
+                .toBe(series.photos.length);
+
+            expect(consoleErrors).toEqual([]);
+        });
+
+        test('the hero image loads and the page links back to the gallery', async ({ page }) => {
+            await page.goto(url);
+
+            await expect
+                .poll(() => page.locator('.project-hero img').evaluate((img) => img.complete && img.naturalWidth > 0))
+                .toBe(true);
+
+            const back = page.locator('.project-back a');
+            await expect(back).toHaveAttribute('href', /index\.html/);
+            await back.click();
+            await expect(page.locator('#gallery-container .gallery-item-wrapper').first()).toBeVisible();
+        });
+
+        test('the lightbox opens on the series photos', async ({ page }) => {
+            await page.goto(url);
+            await page.locator('.project-item').first().click();
+
+            const lightbox = page.locator('#lightbox');
+            await expect(lightbox).toHaveClass(/active/);
+            await expect(page.locator('#lightbox-img')).toHaveAttribute('src', /^\.\.\/images\/optimized\/.*-large\.jpg$/);
+
+            const metadata = page.locator('#lightbox-metadata');
+            await expect(metadata.locator('.metadata-grid, .metadata-empty, .metadata-error'))
+                .toBeVisible({ timeout: 30_000 });
+
+            await page.keyboard.press('Escape');
+            await expect(lightbox).not.toHaveClass(/active/);
+        });
+    });
+}

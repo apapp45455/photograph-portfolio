@@ -1,0 +1,22 @@
+{
+  "$comment": "Authoring source for photo series (專題). Edit this by hand, then run `npm run build:gallery`. Photos whose filename matches a series' `match` regex are tagged with that series id in js/gallery-data.json and are shown on the series page instead of the home grid. `layout` controls the order and column span on the series page; `span` is \"full\" (whole row) or \"half\".",
+  "series": [
+    {
+      "id": "japan",
+      "match": "^日本_",
+      "title": "Japan · Tōhoku",
+      "titleZh": "日本・東北",
+      "period": "2026 / 05",
+      "summary": "五月的東北。先在山形的展望台上往下看城市的幾何，隔天南下福島，走過花見山公園的新綠，最後停在會津若松城的白牆前。兩天，五張。",
+      "page": "projects/japan.html",
+      "cover": "日本_會津若松城.jpg",
+      "layout": [
+        { "file": "日本_霞城觀景台.jpg", "span": "half", "caption": "山形・霞城觀景台" },
+        { "file": "日本_霞城觀景台2.jpg", "span": "half", "caption": "山形・霞城觀景台" },
+        { "file": "日本_花見山公園.jpg", "span": "full", "caption": "福島・花見山公園" },
+        { "file": "日本_會津若松城.jpg", "span": "half", "caption": "會津若松・鶴ヶ城" },
+        { "file": "日本_會津若松城_鳥居.jpg", "span": "half", "caption": "會津若松・鶴ヶ城" }
+      ]
+    }
+  ]
+}

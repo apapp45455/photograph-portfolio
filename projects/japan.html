@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Japan · Tōhoku — 大衛的攝影網站</title>
+    <meta name="description" content="五月的東北，山形與福島的五張照片 — 霞城觀景台的俯瞰、花見山公園的新綠、會津若松城的白牆。" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@200;300;400;500;700&family=Cormorant+Garamond:ital,wght@0,400;0,500;1,400&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="../style.css" />
+
+    <!-- Open Graph / Social Sharing -->
+    <meta property="og:title" content="Japan · Tōhoku — 日本・東北" />
+    <meta property="og:description" content="五月的東北，山形與福島。A five-photograph series from Yamagata and Fukushima." />
+    <meta property="og:image" content="https://apapp45455.github.io/photograph-portfolio/images/optimized/日本_會津若松城-large.jpg" />
+    <meta property="og:url" content="https://apapp45455.github.io/photograph-portfolio/projects/japan.html" />
+    <meta property="og:type" content="article" />
+    <!-- Cloudflare Web Analytics -->
+    <script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "045961f8d9e5443186eac62ce47ae6ea"}'></script>
+    <!-- End Cloudflare Web Analytics -->
+  </head>
+  <body data-series="japan" data-asset-base="../">
+    <!-- Site Header -->
+    <header class="site-header">
+      <a href="../index.html" class="site-title">David<span>Photography</span></a>
+      <nav class="site-nav">
+        <a href="../index.html#gallery-container">Gallery</a>
+        <a href="../index.html#series">Series</a>
+        <a href="../index.html#about">About</a>
+        <a href="../index.html#contact">Contact</a>
+      </nav>
+    </header>
+
+    <main class="project-main">
+      <!-- Hero: a band crop of the cover; the full frame appears in the sequence below. -->
+      <div class="project-hero">
+        <picture>
+          <source
+            type="image/webp"
+            srcset="../images/optimized/日本_會津若松城-medium.webp 1080w, ../images/optimized/日本_會津若松城-large.webp 1920w"
+            sizes="100vw"
+          />
+          <img
+            src="../images/optimized/日本_會津若松城-large.jpg"
+            srcset="../images/optimized/日本_會津若松城-medium.jpg 1080w, ../images/optimized/日本_會津若松城-large.jpg 1920w"
+            sizes="100vw"
+            alt="會津若松城"
+            fetchpriority="high"
+            width="1920"
+            height="1442"
+          />
+        </picture>
+        <div class="project-hero-overlay">
+          <p class="project-eyebrow">Series — 2026 / 05</p>
+          <h1 class="project-title">Japan<span class="project-title-dot">·</span>Tōhoku</h1>
+          <p class="project-title-zh">日本・東北</p>
+        </div>
+      </div>
+
+      <section class="project-intro">
+        <p class="project-lede">
+          五月的東北。先在山形的展望台上往下看城市的幾何，隔天南下福島，
+          走過花見山公園的新綠，最後停在會津若松城的白牆前。
+        </p>
+        <dl class="project-facts">
+          <div class="project-fact">
+            <dt>Location</dt>
+            <dd>山形 · 福島</dd>
+          </div>
+          <div class="project-fact">
+            <dt>Date</dt>
+            <dd>2026.05.14 – 05.15</dd>
+          </div>
+          <div class="project-fact">
+            <dt>Frames</dt>
+            <dd>5</dd>
+          </div>
+        </dl>
+      </section>
+
+      <!-- 照片由 js/project.js 依 js/series-data.json 的 layout 順序產生 -->
+      <div class="project-grid" id="gallery-container"></div>
+
+      <p class="project-back">
+        <a href="../index.html#series">← Back to gallery</a>
+      </p>
+    </main>
+
+    <footer id="contact">
+      <div class="contact-info">
+        <p class="contact-header">Contact Me</p>
+        <p>Phone: (+886) 0968112709</p>
+        <p>Email: apapp45455@gmail.com</p>
+      </div>
+      <p class="copyright">&copy; 2025 David Wang. All rights reserved.</p>
+    </footer>
+
+    <!-- 燈箱結構 -->
+    <!-- Lightbox Structure -->
+    <div id="lightbox" class="lightbox">
+      <span class="close-btn">&times;</span>
+
+      <button type="button" class="nav-btn prev-btn" id="prev-btn">&#10094;</button>
+
+      <div class="lightbox-content-wrapper">
+        <!-- src is set by js/lightbox.js when a photo is opened -->
+        <!-- [html-validate-disable-next element-required-attributes -- src injected at runtime] -->
+        <img
+          class="lightbox-img"
+          id="lightbox-img"
+          alt="Enlarged view"
+        />
+        <div class="lightbox-info">
+          <p class="lightbox-caption" id="lightbox-caption"></p>
+          <div class="lightbox-metadata" id="lightbox-metadata"></div>
+        </div>
+      </div>
+
+      <button type="button" class="nav-btn next-btn" id="next-btn">&#10095;</button>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/exif-js"></script>
+    <script type="module" src="../js/project.js"></script>
+  </body>
+</html>

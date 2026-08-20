@@ -4,6 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>大衛的攝影網站</title>
+    <meta name="description" content="大衛的攝影作品集 — 街景、建築與旅途中的光。David Wang's photography portfolio." />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -28,15 +29,24 @@
       <a href="#gallery-container" class="site-title">David<span>Photography</span></a>
       <nav class="site-nav">
         <a href="#gallery-container">Gallery</a>
+        <a href="#series">Series</a>
         <a href="#about">About</a>
         <a href="#gear">Gear</a>
         <a href="#contact">Contact</a>
       </nav>
     </header>
     <main>
-      <div class="gallery-container" id="gallery-container">
-        <!-- 圖片將由 JavaScript 動態載入 -->
-      </div>
+      <!-- 專題（系列作品）— 卡片由 js/series.js 依 js/series-data.json 產生 -->
+      <section id="series" class="series-section">
+        <div class="series-list" id="series-list"></div>
+      </section>
+
+      <section class="work-section">
+        <h2 class="section-heading">Selected Works</h2>
+        <div class="gallery-container" id="gallery-container">
+          <!-- 圖片將由 JavaScript 動態載入（不含已歸入專題的照片） -->
+        </div>
+      </section>
 
       <!-- About Section -->
       <section id="about" class="about-section">

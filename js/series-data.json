@@ -1,0 +1,63 @@
+[
+  {
+    "id": "japan",
+    "title": "Japan · Tōhoku",
+    "titleZh": "日本・東北",
+    "period": "2026 / 05",
+    "summary": "五月的東北。先在山形的展望台上往下看城市的幾何，隔天南下福島，走過花見山公園的新綠，最後停在會津若松城的白牆前。兩天，五張。",
+    "page": "projects/japan.html",
+    "count": 5,
+    "cover": {
+      "filename": "日本_會津若松城.jpg",
+      "series": "japan",
+      "original": "images/日本_會津若松城.jpg",
+      "width": 5328,
+      "height": 4000,
+      "aspectRatio": 1.332,
+      "versions": {
+        "thumb": {
+          "jpg": "images/optimized/日本_會津若松城-thumb.jpg",
+          "webp": "images/optimized/日本_會津若松城-thumb.webp",
+          "width": 400
+        },
+        "medium": {
+          "jpg": "images/optimized/日本_會津若松城-medium.jpg",
+          "webp": "images/optimized/日本_會津若松城-medium.webp",
+          "width": 1080
+        },
+        "large": {
+          "jpg": "images/optimized/日本_會津若松城-large.jpg",
+          "webp": "images/optimized/日本_會津若松城-large.webp",
+          "width": 1920
+        }
+      }
+    },
+    "photos": [
+      {
+        "filename": "日本_霞城觀景台.jpg",
+        "span": "half",
+        "caption": "山形・霞城觀景台"
+      },
+      {
+        "filename": "日本_霞城觀景台2.jpg",
+        "span": "half",
+        "caption": "山形・霞城觀景台"
+      },
+      {
+        "filename": "日本_花見山公園.jpg",
+        "span": "full",
+        "caption": "福島・花見山公園"
+      },
+      {
+        "filename": "日本_會津若松城.jpg",
+        "span": "half",
+        "caption": "會津若松・鶴ヶ城"
+      },
+      {
+        "filename": "日本_會津若松城_鳥居.jpg",
+        "span": "half",
+        "caption": "會津若松・鶴ヶ城"
+      }
+    ]
+  }
+]

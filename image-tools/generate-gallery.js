@@ -9,7 +9,9 @@ const CONFIG = {
     DIRECTORIES: {
         IMAGES: 'images',
         OPTIMIZED: 'images/optimized',
-        DATA_OUTPUT: 'js/gallery-data.json'
+        DATA_OUTPUT: 'js/gallery-data.json',
+        SERIES_SOURCE: 'image-tools/series.json',
+        SERIES_OUTPUT: 'js/series-data.json'
     },
     IMAGE_SIZES: {
         thumb: 400,
@@ -32,14 +34,19 @@ class ImageProcessor {
     static async getMetadata(filePath) {
         const image = sharp(filePath);
         const metadata = await image.metadata();
-        
+
+        // Derivatives are written with .rotate() (auto-orient), so the manifest must
+        // record the *oriented* dimensions — otherwise an EXIF-rotated portrait shot
+        // is described as landscape and the grid reserves the wrong box for it.
+        const { width, height } = metadata.autoOrient || metadata;
+
         // Sharp exposes raw EXIF as a buffer (metadata.exif). We only store dimensions
         // for now; parsing it here (e.g. with 'exifr') would let the lightbox skip the
         // client-side exif-js read.
         return {
-            width: metadata.width,
-            height: metadata.height,
-            aspectRatio: metadata.width / metadata.height,
+            width,
+            height,
+            aspectRatio: width / height,
             format: metadata.format,
             // You can extend this with more EXIF data using an EXIF parser library here
         };
@@ -88,6 +95,90 @@ class ImageProcessor {
 }
 
 /**
+ * Resolves which series (專題) a photo belongs to, and turns the hand-written
+ * image-tools/series.json into the runtime js/series-data.json the pages fetch.
+ *
+ * A photo belongs to a series when its filename matches that series' `match`
+ * regex. Photos that match nothing stay in the home grid ("Selected Works").
+ */
+class SeriesCatalog {
+    /** Filenames are compared NFC-normalised: macOS hands back NFD for CJK names. */
+    static norm(value) {
+        return String(value).normalize('NFC');
+    }
+
+    static load() {
+        if (!fs.existsSync(CONFIG.DIRECTORIES.SERIES_SOURCE)) {
+            console.log('ℹ️  No series.json — every photo goes in the main grid.');
+            return [];
+        }
+
+        const parsed = JSON.parse(fs.readFileSync(CONFIG.DIRECTORIES.SERIES_SOURCE, 'utf8'));
+        return (parsed.series || []).map((definition) => ({
+            ...definition,
+            pattern: new RegExp(definition.match)
+        }));
+    }
+
+    constructor(definitions) {
+        this.definitions = definitions;
+    }
+
+    idFor(fileName) {
+        const name = SeriesCatalog.norm(fileName);
+        const match = this.definitions.find((definition) => definition.pattern.test(name));
+        return match ? match.id : null;
+    }
+
+    /**
+     * Builds the runtime series manifest: editorial copy plus the cover entry in
+     * full, so a series card can render a <picture> without a second lookup.
+     */
+    build(galleryData) {
+        return this.definitions.map((definition) => {
+            const members = galleryData.filter((entry) => entry.series === definition.id);
+            const cover = galleryData.find(
+                (entry) => SeriesCatalog.norm(entry.filename) === SeriesCatalog.norm(definition.cover)
+            );
+
+            if (!cover) {
+                console.warn(`\n⚠️  Series "${definition.id}": cover "${definition.cover}" is not in ${CONFIG.DIRECTORIES.IMAGES}/`);
+            }
+
+            const layout = (definition.layout || []).filter((item) => {
+                const known = members.some(
+                    (entry) => SeriesCatalog.norm(entry.filename) === SeriesCatalog.norm(item.file)
+                );
+                if (!known) console.warn(`\n⚠️  Series "${definition.id}": layout lists unknown photo "${item.file}"`);
+                return known;
+            });
+
+            // Members missing from `layout` still get shown, appended in filename order.
+            const laidOut = new Set(layout.map((item) => SeriesCatalog.norm(item.file)));
+            const rest = members
+                .filter((entry) => !laidOut.has(SeriesCatalog.norm(entry.filename)))
+                .map((entry) => ({ file: entry.filename, span: 'half', caption: '' }));
+
+            return {
+                id: definition.id,
+                title: definition.title,
+                titleZh: definition.titleZh,
+                period: definition.period,
+                summary: definition.summary,
+                page: definition.page,
+                count: members.length,
+                cover: cover || null,
+                photos: [...layout, ...rest].map((item) => ({
+                    filename: item.file,
+                    span: item.span === 'full' ? 'full' : 'half',
+                    caption: item.caption || ''
+                }))
+            };
+        });
+    }
+}
+
+/**
  * Orchestrates the gallery generation with concurrency control.
  */
 class GalleryGenerator {
@@ -108,8 +199,9 @@ class GalleryGenerator {
 
             console.log(`📂 Processing ${files.length} images (Concurrency: ${CONFIG.CONCURRENCY})`);
 
+            const catalog = new SeriesCatalog(SeriesCatalog.load());
             const galleryData = [];
-            
+
             // Next Level: Process images in chunks to manage system resources
             for (let i = 0; i < files.length; i += CONFIG.CONCURRENCY) {
                 const chunk = files.slice(i, i + CONFIG.CONCURRENCY);
@@ -117,15 +209,21 @@ class GalleryGenerator {
                     const filePath = path.join(CONFIG.DIRECTORIES.IMAGES, file);
                     const data = await ImageProcessor.process(filePath, file);
                     process.stdout.write('.');
-                    return { filename: file, ...data };
+                    return { filename: file, series: catalog.idFor(file), ...data };
                 }));
                 galleryData.push(...results);
             }
 
+            const seriesData = catalog.build(galleryData);
+
             fs.writeFileSync(CONFIG.DIRECTORIES.DATA_OUTPUT, JSON.stringify(galleryData, null, 2));
-            
+            fs.writeFileSync(CONFIG.DIRECTORIES.SERIES_OUTPUT, JSON.stringify(seriesData, null, 2));
+
+            const grouped = galleryData.filter((entry) => entry.series).length;
             const duration = ((Date.now() - startTime) / 1000).toFixed(2);
-            console.log(`\n✨ Done in ${duration}s! Data saved to ${CONFIG.DIRECTORIES.DATA_OUTPUT}`);
+            console.log(`\n✨ Done in ${duration}s! ${galleryData.length} photos (${grouped} in ${seriesData.length} series).`);
+            console.log(`   → ${CONFIG.DIRECTORIES.DATA_OUTPUT}`);
+            console.log(`   → ${CONFIG.DIRECTORIES.SERIES_OUTPUT}`);
 
         } catch (error) {
             console.error('💥 Critical error:', error);

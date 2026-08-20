@@ -21,6 +21,8 @@ const CONFIG = {
     IMAGES: 'images',
     OPTIMIZED: 'images/optimized',
     DATA: 'js/gallery-data.json',
+    SERIES_SOURCE: 'image-tools/series.json',
+    SERIES_DATA: 'js/series-data.json',
     SIZES: { thumb: 400, medium: 1080, large: 1920 },
     ALLOWED_EXTENSIONS: ['.jpg', '.jpeg', '.png']
 };
@@ -62,8 +64,11 @@ async function verifyPixels(data) {
 
         try {
             const meta = await sharp(sourcePath).metadata();
-            if (meta.width !== entry.width || meta.height !== entry.height) {
-                fail(`${entry.filename}: manifest says ${entry.width}x${entry.height}, file is ${meta.width}x${meta.height} — run \`npm run build:gallery\``);
+            // Compare against the auto-oriented size: that is what the manifest records
+            // and what the (rotated) derivatives actually are.
+            const { width, height } = meta.autoOrient || meta;
+            if (width !== entry.width || height !== entry.height) {
+                fail(`${entry.filename}: manifest says ${entry.width}x${entry.height}, file is ${width}x${height} — run \`npm run build:gallery\``);
             }
         } catch (error) {
             fail(`${entry.filename}: unreadable image (${error.message})`);
@@ -85,6 +90,88 @@ async function verifyPixels(data) {
             }
         }
     }
+}
+
+/**
+ * The series manifest must stay in step with the gallery manifest: a photo tagged
+ * with a series has to appear on that series' page, and every photo the page lists
+ * has to exist. Otherwise a photo silently disappears from the site — it is absent
+ * from the home grid *and* from the series page.
+ */
+function checkSeries(data) {
+    const hasSource = fs.existsSync(CONFIG.SERIES_SOURCE);
+    const hasOutput = fs.existsSync(CONFIG.SERIES_DATA);
+
+    if (!hasSource) {
+        if (hasOutput) warn(`${CONFIG.SERIES_DATA} exists but ${CONFIG.SERIES_SOURCE} does not`);
+        return;
+    }
+    if (!hasOutput) {
+        fail(`Missing ${CONFIG.SERIES_DATA} (run \`npm run build:gallery\`)`);
+        return;
+    }
+
+    let series;
+    try {
+        series = JSON.parse(fs.readFileSync(CONFIG.SERIES_DATA, 'utf8'));
+    } catch (error) {
+        fail(`${CONFIG.SERIES_DATA} is not valid JSON: ${error.message}`);
+        return;
+    }
+    if (!Array.isArray(series)) {
+        fail(`${CONFIG.SERIES_DATA} must be an array, got ${typeof series}`);
+        return;
+    }
+
+    const knownIds = new Set(series.map((entry) => entry.id));
+    const byFilename = new Map(data.map((entry) => [norm(entry.filename), entry]));
+
+    for (const entry of data) {
+        if (entry.series !== null && entry.series !== undefined && !knownIds.has(entry.series)) {
+            fail(`${entry.filename}: tagged with unknown series "${entry.series}"`);
+        }
+    }
+
+    for (const definition of series) {
+        const label = `series "${definition.id}"`;
+
+        if (!definition.cover) fail(`${label}: has no cover photo`);
+        if (definition.page && !fs.existsSync(definition.page)) {
+            fail(`${label}: page "${definition.page}" does not exist`);
+        }
+
+        const members = data.filter((entry) => entry.series === definition.id);
+        if (members.length === 0) fail(`${label}: no photo matches it`);
+        if (definition.count !== members.length) {
+            fail(`${label}: count is ${definition.count}, ${members.length} photos are tagged with it`);
+        }
+
+        const listed = new Set();
+        for (const photo of definition.photos || []) {
+            const filename = norm(photo.filename);
+            if (listed.has(filename)) fail(`${label}: "${photo.filename}" is listed twice`);
+            listed.add(filename);
+
+            const entry = byFilename.get(filename);
+            if (!entry) {
+                fail(`${label}: lists "${photo.filename}", which has no gallery entry`);
+            } else if (entry.series !== definition.id) {
+                fail(`${label}: lists "${photo.filename}", which belongs to series "${entry.series}"`);
+            }
+            if (!['full', 'half'].includes(photo.span)) {
+                fail(`${label}/${photo.filename}: span is "${photo.span}", expected "full" or "half"`);
+            }
+        }
+
+        // A tagged photo that no page lists would vanish from the site entirely.
+        for (const member of members) {
+            if (!listed.has(norm(member.filename))) {
+                fail(`${label}: "${member.filename}" is tagged with it but not laid out on the page`);
+            }
+        }
+    }
+
+    console.log(`Checked ${series.length} series covering ${data.filter((e) => e.series).length} photos.`);
 }
 
 async function main() {
@@ -197,6 +284,8 @@ async function main() {
             warn(`${CONFIG.OPTIMIZED}/${file} is not referenced by any entry (orphan)`);
         }
     }
+
+    checkSeries(data);
 
     if (DEEP) {
         await verifyPixels(data);
