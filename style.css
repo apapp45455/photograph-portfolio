@@ -220,6 +220,19 @@ main {
 .series-list {
   display: grid;
   gap: 2.5rem;
+
+  /* The cards are inserted by JS, so without a reservation the first one shoves
+     Selected Works, About, Gear and the footer down on arrival. This is the cover's
+     height at 1.15fr of the content column, 4:3 — deliberately a floor rather than an
+     exact match, since overshooting would leave dead space under a rendered card. */
+  min-height: calc((min(1400px, 100vw) - 40px) * 0.43);
+}
+
+@media (max-width: 1024px) {
+  /* Stacked: the cover goes full width at 16:9. */
+  .series-list {
+    min-height: calc((100vw - 40px) * 0.5625);
+  }
 }
 
 .series-card {

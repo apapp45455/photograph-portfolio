@@ -156,8 +156,9 @@ test.describe('lightbox', () => {
     test('a thumbnail can be reached and opened from the keyboard', async ({ page }) => {
         await page.goto('/');
 
-        // The control is the <picture>: on a <figure> tile, role="button" would fold the
-        // caption into the accessible name and drop the figure/figcaption relationship.
+        // The control is the <img>: on a <figure> tile, role="button" would fold the
+        // caption into the accessible name and drop the figure/figcaption relationship,
+        // and <picture> is an inline box ARIA-in-HTML does not sanction a role on.
         const first = page.locator('#gallery-container .gallery-item-wrapper img').first();
         await expect(first).toHaveAttribute('role', 'button');
 

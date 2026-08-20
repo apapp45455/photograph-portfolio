@@ -164,7 +164,11 @@ function checkSeriesSource(data) {
 
             // alt exists precisely because two frames can share a caption; a copy-pasted
             // layout block would otherwise give two tiles the same accessible name.
-            if (!item.alt) continue;
+            // Skipping a missing one would let it fall back to the filename unnoticed.
+            if (!item.alt) {
+                fail(`${label}: layout entry "${item.file}" has no "alt" — it would fall back to its filename`);
+                continue;
+            }
             const first = seenAlts.get(item.alt);
             if (first) fail(`${label}: "${item.file}" and "${first}" share the alt text "${item.alt}"`);
             else seenAlts.set(item.alt, item.file);

@@ -85,12 +85,19 @@ class ProjectApp {
     }
   }
 
-  /** Full-span photos fill the editorial column; half-span ones share it. */
+  /**
+   * Full-span photos fill the editorial column; half-span ones share it.
+   *
+   * The numbers are the real boxes, not round ones: .project-main is 1100px wide
+   * with 20px of padding, so the column is 1060px and each half is (1060 - 40)/2.
+   * Overstating by 40px puts the request on the far side of the 1080w candidate and
+   * pulls -large where -medium serves.
+   */
   static sizesFor(item) {
-    const { MOBILE, TABLET } = CONFIG.BREAKPOINTS;
+    const { MOBILE } = CONFIG.BREAKPOINTS;
     return item.span === "full"
-      ? `(max-width: ${TABLET}px) 100vw, 1100px`
-      : `(max-width: ${MOBILE}px) 100vw, (max-width: ${TABLET}px) 50vw, 550px`;
+      ? "(max-width: 1100px) calc(100vw - 40px), 1060px"
+      : `(max-width: ${MOBILE}px) calc(100vw - 40px), (max-width: 1100px) calc(50vw - 40px), 510px`;
   }
 }
 
