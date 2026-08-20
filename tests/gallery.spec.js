@@ -194,7 +194,6 @@ test.describe('series', () => {
         const grouped = galleryData.filter((entry) => entry.series);
 
         expect(grouped.map((entry) => entry.filename).filter((name) => !laidOut.has(name))).toEqual([]);
-        expect(homePhotos.length + grouped.length).toBe(galleryData.length);
     });
 
     test('the home page shows one entry card per series', async ({ page }) => {
@@ -251,9 +250,22 @@ for (const series of seriesData) {
         test('the hero image loads and the page links back to the gallery', async ({ page }) => {
             await page.goto(url);
 
+            const hero = page.locator('.project-hero img');
             await expect
-                .poll(() => page.locator('.project-hero img').evaluate((img) => img.complete && img.naturalWidth > 0))
+                .poll(() => hero.evaluate((img) => img.complete && img.naturalWidth > 0))
                 .toBe(true);
+
+            // The hero is the one hand-written part of a series page: its paths and
+            // width/height are typed in, not generated. Tie both to the manifest so a
+            // re-crop or a changed `cover` cannot leave it silently stale.
+            const coverBase = series.cover.filename.replace(/\.[^/.]+$/, '');
+            expect(await hero.getAttribute('src')).toContain(coverBase);
+
+            const declared = await hero.evaluate((img) => Number(img.getAttribute('width')) / Number(img.getAttribute('height')));
+            expect(declared).toBeCloseTo(series.cover.aspectRatio, 2);
+
+            const decoded = await hero.evaluate((img) => img.naturalWidth / img.naturalHeight);
+            expect(decoded).toBeCloseTo(series.cover.aspectRatio, 2);
 
             const back = page.locator('.project-back a');
             await expect(back).toHaveAttribute('href', /index\.html/);

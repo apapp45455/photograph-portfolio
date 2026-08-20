@@ -10,7 +10,10 @@ import { mountLightbox } from "./page.js";
  */
 class App {
   static async start() {
-    await App.renderSeries();
+    // Both manifests are fetched at once. Awaiting the series cards first delayed the
+    // gallery request until they had rendered, for no benefit — they fill separate
+    // containers, so neither ordering affects layout.
+    const seriesRendered = App.renderSeries();
 
     const gallery = new Gallery({
       container: document.querySelector(CONFIG.SELECTORS.GALLERY),
@@ -24,7 +27,7 @@ class App {
       select: selectUngrouped,
     });
 
-    await gallery.init();
+    await Promise.all([gallery.init(), seriesRendered]);
     mountLightbox(gallery.data);
   }
 

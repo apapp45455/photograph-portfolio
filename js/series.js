@@ -64,7 +64,6 @@ export class SeriesCardRenderer {
     }
 
     const img = document.createElement("img");
-    img.src = series.cover.versions.medium.jpg;
     img.alt = series.title;
     img.width = series.cover.width;
     img.height = series.cover.height;
@@ -73,7 +72,12 @@ export class SeriesCardRenderer {
     } else {
       img.loading = "lazy";
     }
+
+    // Append first, assign src last: on a detached <img> the <source> elements take no
+    // part in selection, so the browser would fetch the JPEG and then re-select WebP.
+    // fetchPriority likewise only counts if it is set before the request starts.
     picture.appendChild(img);
+    img.src = series.cover.versions.medium.jpg;
 
     figure.appendChild(picture);
     return figure;

@@ -12,13 +12,20 @@ export class LightboxView {
   }
 
   open() {
+    // Remember where focus came from so Esc can hand it back instead of dropping
+    // the user at the top of the document.
+    this.previouslyFocused = document.activeElement;
     this.elements.container.classList.add(this.classes.ACTIVE);
     this.pageBody.style.overflow = "hidden";
+    this.elements.closeBtn.focus();
   }
 
   close() {
     this.elements.container.classList.remove(this.classes.ACTIVE);
     this.pageBody.style.overflow = "";
+    if (this.previouslyFocused && typeof this.previouslyFocused.focus === "function") {
+      this.previouslyFocused.focus();
+    }
   }
 
   showItem(item) {

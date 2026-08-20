@@ -145,19 +145,35 @@ class SeriesCatalog {
                 console.warn(`\n⚠️  Series "${definition.id}": cover "${definition.cover}" is not in ${CONFIG.DIRECTORIES.IMAGES}/`);
             }
 
-            const layout = (definition.layout || []).filter((item) => {
-                const known = members.some(
-                    (entry) => SeriesCatalog.norm(entry.filename) === SeriesCatalog.norm(item.file)
-                );
-                if (!known) console.warn(`\n⚠️  Series "${definition.id}": layout lists unknown photo "${item.file}"`);
-                return known;
-            });
+            // Resolve every layout entry to the *manifest* filename rather than the one
+            // typed into series.json, so downstream joins never have to re-normalise.
+            const byName = new Map(members.map((entry) => [SeriesCatalog.norm(entry.filename), entry]));
 
-            // Members missing from `layout` still get shown, appended in filename order.
-            const laidOut = new Set(layout.map((item) => SeriesCatalog.norm(item.file)));
-            const rest = members
-                .filter((entry) => !laidOut.has(SeriesCatalog.norm(entry.filename)))
-                .map((entry) => ({ file: entry.filename, span: 'half', caption: '' }));
+            const photos = [];
+            const laidOut = new Set();
+
+            for (const item of definition.layout || []) {
+                const entry = byName.get(SeriesCatalog.norm(item.file));
+                if (!entry) {
+                    console.warn(`\n⚠️  Series "${definition.id}": layout lists unknown photo "${item.file}"`);
+                    continue;
+                }
+                laidOut.add(SeriesCatalog.norm(entry.filename));
+                photos.push({
+                    filename: entry.filename,
+                    span: item.span === 'full' ? 'full' : 'half',
+                    caption: item.caption || ''
+                });
+            }
+
+            // A member missing from `layout` still gets shown — silently dropping it would
+            // erase it from the site, since it is excluded from the home grid too. But it
+            // lands captionless at the bottom, which is rarely what was intended: say so.
+            for (const entry of members) {
+                if (laidOut.has(SeriesCatalog.norm(entry.filename))) continue;
+                console.warn(`\n⚠️  Series "${definition.id}": "${entry.filename}" is not in layout — appended at the end without a caption`);
+                photos.push({ filename: entry.filename, span: 'half', caption: '' });
+            }
 
             return {
                 id: definition.id,
@@ -168,11 +184,7 @@ class SeriesCatalog {
                 page: definition.page,
                 count: members.length,
                 cover: cover || null,
-                photos: [...layout, ...rest].map((item) => ({
-                    filename: item.file,
-                    span: item.span === 'full' ? 'full' : 'half',
-                    caption: item.caption || ''
-                }))
+                photos
             };
         });
     }

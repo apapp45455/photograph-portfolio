@@ -34,7 +34,14 @@ export class GalleryItemRenderer {
     const picture = document.createElement("picture");
     picture.appendChild(this.createSource("image/webp", item, "webp"));
     picture.appendChild(this.createSource("image/jpeg", item, "jpg"));
-    picture.appendChild(this.createImage(item));
+
+    // src is assigned last, once the <source> elements are already in the DOM:
+    // setting it on a detached <img> starts a JPEG fetch that the WebP source then
+    // supersedes on insertion, costing one wasted request per photo.
+    const img = this.createImage(item);
+    picture.appendChild(img);
+    img.src = item.versions.thumb.jpg;
+
     return picture;
   }
 
@@ -50,9 +57,9 @@ export class GalleryItemRenderer {
     return source;
   }
 
+  /** Everything but `src` — see createPicture for why that is set afterwards. */
   createImage(item) {
     const img = document.createElement("img");
-    img.src = item.versions.thumb.jpg;
     img.alt = formatPhotoTitle(item.filename);
     img.classList.add(this.classes.GALLERY_ITEM);
     img.loading = "lazy";

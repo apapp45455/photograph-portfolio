@@ -16,7 +16,7 @@
     <!-- Open Graph / Social Sharing -->
     <meta property="og:title" content="大衛的攝影網站 - David's Photography" />
     <meta property="og:description" content="Capturing Moments, Creating Memories. View my portfolio of street and architectural photography." />
-    <meta property="og:image" content="https://apapp45455.github.io/photograph-portfolio/images/信義_101.jpg" />
+    <meta property="og:image" content="https://apapp45455.github.io/photograph-portfolio/images/%E4%BF%A1%E7%BE%A9_101.jpg" />
     <meta property="og:url" content="https://apapp45455.github.io/photograph-portfolio/" />
     <meta property="og:type" content="website" />
     <!-- Cloudflare Web Analytics -->
@@ -80,10 +80,10 @@
 
     <!-- 燈箱結構 -->
     <!-- Lightbox Structure -->
-    <div id="lightbox" class="lightbox">
-      <span class="close-btn">&times;</span>
+    <div id="lightbox" class="lightbox" role="dialog" aria-modal="true" aria-label="Photo viewer">
+      <button type="button" class="close-btn" aria-label="Close">&times;</button>
 
-      <button type="button" class="nav-btn prev-btn" id="prev-btn">&#10094;</button>
+      <button type="button" class="nav-btn prev-btn" id="prev-btn" aria-label="Previous photo">&#10094;</button>
 
       <div class="lightbox-content-wrapper">
         <!-- src is set by js/lightbox.js when a photo is opened -->
@@ -99,7 +99,7 @@
         </div>
       </div>
 
-      <button type="button" class="nav-btn next-btn" id="next-btn">&#10095;</button>
+      <button type="button" class="nav-btn next-btn" id="next-btn" aria-label="Next photo">&#10095;</button>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/exif-js"></script>

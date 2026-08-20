@@ -135,7 +135,14 @@ function checkSeries(data) {
     for (const definition of series) {
         const label = `series "${definition.id}"`;
 
-        if (!definition.cover) fail(`${label}: has no cover photo`);
+        if (!definition.cover) {
+            fail(`${label}: has no cover photo`);
+        } else if (definition.cover.series !== definition.id) {
+            // The cover is looked up across the whole manifest, so a typo in `cover` or
+            // `match` yields a photo that is the series' cover *and* still in the home
+            // grid — the one invariant this whole layout is built on.
+            fail(`${label}: cover "${definition.cover.filename}" belongs to series "${definition.cover.series}"`);
+        }
         if (definition.page && !fs.existsSync(definition.page)) {
             fail(`${label}: page "${definition.page}" does not exist`);
         }

@@ -16,7 +16,7 @@
     <!-- Open Graph / Social Sharing -->
     <meta property="og:title" content="Japan · Tōhoku — 日本・東北" />
     <meta property="og:description" content="五月的東北，山形與福島。A five-photograph series from Yamagata and Fukushima." />
-    <meta property="og:image" content="https://apapp45455.github.io/photograph-portfolio/images/optimized/日本_會津若松城-large.jpg" />
+    <meta property="og:image" content="https://apapp45455.github.io/photograph-portfolio/images/optimized/%E6%97%A5%E6%9C%AC_%E6%9C%83%E6%B4%A5%E8%8B%A5%E6%9D%BE%E5%9F%8E-large.jpg" />
     <meta property="og:url" content="https://apapp45455.github.io/photograph-portfolio/projects/japan.html" />
     <meta property="og:type" content="article" />
     <!-- Cloudflare Web Analytics -->
@@ -101,10 +101,10 @@
 
     <!-- 燈箱結構 -->
     <!-- Lightbox Structure -->
-    <div id="lightbox" class="lightbox">
-      <span class="close-btn">&times;</span>
+    <div id="lightbox" class="lightbox" role="dialog" aria-modal="true" aria-label="Photo viewer">
+      <button type="button" class="close-btn" aria-label="Close">&times;</button>
 
-      <button type="button" class="nav-btn prev-btn" id="prev-btn">&#10094;</button>
+      <button type="button" class="nav-btn prev-btn" id="prev-btn" aria-label="Previous photo">&#10094;</button>
 
       <div class="lightbox-content-wrapper">
         <!-- src is set by js/lightbox.js when a photo is opened -->
@@ -120,7 +120,7 @@
         </div>
       </div>
 
-      <button type="button" class="nav-btn next-btn" id="next-btn">&#10095;</button>
+      <button type="button" class="nav-btn next-btn" id="next-btn" aria-label="Next photo">&#10095;</button>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/exif-js"></script>
