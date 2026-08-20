@@ -5,6 +5,9 @@ const sharp = require('sharp');
 /**
  * CONFIGURATION
  */
+/** Re-encode derivatives that already exist — needed after a source image is replaced. */
+const FORCE = process.argv.includes('--force');
+
 const CONFIG = {
     DIRECTORIES: {
         IMAGES: 'images',
@@ -72,30 +75,23 @@ class ImageProcessor {
         return results;
     }
 
-    /**
-     * A fresh clone gives every file the same checkout time, so this only fires for a
-     * source that was genuinely touched after its derivative was written.
-     */
-    static isStale(sourcePath, outputPath) {
-        if (!fs.existsSync(outputPath)) return true;
-        return fs.statSync(sourcePath).mtimeMs > fs.statSync(outputPath).mtimeMs;
-    }
-
     static async generateVersions(filePath, baseName, sizeName, targetWidth) {
         const jpgName = `${baseName}-${sizeName}.jpg`;
         const webpName = `${baseName}-${sizeName}.webp`;
         const jpgPath = path.join(CONFIG.DIRECTORIES.OPTIMIZED, jpgName);
         const webpPath = path.join(CONFIG.DIRECTORIES.OPTIMIZED, webpName);
 
-        // Skipping on existence alone means a re-cropped photo keeps its old derivatives:
-        // the manifest picks up the new dimensions while images/optimized/ still serves
-        // the old frame, and nothing downstream can tell, because every tier's width is
-        // min(tier, width) either way.
-        if (ImageProcessor.isStale(filePath, webpPath)) {
+        // Existing derivatives are skipped unless --force. That is deliberate and load
+        // bearing: mozjpeg's output is not byte-identical between macOS and Linux, so
+        // the regenerate-and-diff gate in CI only works because nothing is re-encoded
+        // there. The cost is that a *replaced* source keeps its old derivatives —
+        // `check:gallery --deep` compares their height to catch exactly that, and tells
+        // you to rerun with --force.
+        if (FORCE || !fs.existsSync(webpPath)) {
             await sharp(filePath).rotate().resize(targetWidth).webp({ quality: CONFIG.QUALITY }).toFile(webpPath);
         }
 
-        if (ImageProcessor.isStale(filePath, jpgPath)) {
+        if (FORCE || !fs.existsSync(jpgPath)) {
             await sharp(filePath).rotate().resize(targetWidth).jpeg({ quality: CONFIG.QUALITY, mozjpeg: true }).toFile(jpgPath);
         }
 
@@ -225,7 +221,7 @@ class GalleryGenerator {
                 CONFIG.ALLOWED_EXTENSIONS.includes(path.extname(file).toLowerCase())
             ).sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
 
-            console.log(`📂 Processing ${files.length} images (Concurrency: ${CONFIG.CONCURRENCY})`);
+            console.log(`📂 Processing ${files.length} images (Concurrency: ${CONFIG.CONCURRENCY}${FORCE ? ', forcing re-encode' : ''})`);
 
             const catalog = new SeriesCatalog(SeriesCatalog.load());
             const galleryData = [];

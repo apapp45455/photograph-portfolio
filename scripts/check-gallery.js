@@ -89,7 +89,7 @@ async function verifyPixels(data) {
                     // alone cannot tell a stale derivative from a current one.
                     const expectedHeight = Math.round(entry.height * (version.width / entry.width));
                     if (Math.abs(meta.height - expectedHeight) > 1) {
-                        fail(`${filePath}: ${meta.width}x${meta.height}, but ${entry.filename} is ${entry.width}x${entry.height} — run \`npm run build:gallery\``);
+                        fail(`${filePath}: ${meta.width}x${meta.height}, but ${entry.filename} is ${entry.width}x${entry.height} — the source was replaced; run \`npm run build:gallery -- --force\``);
                     }
                 } catch (error) {
                     fail(`${filePath}: unreadable image (${error.message})`);

@@ -42,6 +42,12 @@ First-time Playwright setup: `npx playwright install chromium`.
 
 `generate-gallery.js` is incremental — existing optimized files are skipped, so it's safe to re-run.
 
+That skip is load bearing, not just a speed-up: **mozjpeg's output is not byte-identical between macOS and Linux**, so the regenerate-and-diff gate in CI only passes because nothing is re-encoded there. The cost is that *replacing* a photo in place leaves its old derivatives behind — `npm run check:gallery:deep` compares every derivative's height against the manifest to catch exactly that, and the fix is:
+
+```bash
+npm run build:gallery -- --force   # re-encode derivatives that already exist
+```
+
 `compress.js` auto-orients (`.rotate()`), so photos with EXIF orientation are stored upright. `generate-gallery.js` records the auto-oriented dimensions for the same reason: its derivatives are rotated, and a manifest that described a portrait shot as landscape would make the grid reserve the wrong box.
 
 ## Adding a new series (專題)
