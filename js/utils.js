@@ -13,6 +13,8 @@
  * @property {number} width
  * @property {number} height
  * @property {number} aspectRatio
+ * @property {?{make: ?string, model: ?string, fNumber: ?number, exposureTime: ?number, iso: ?number, focalLength: ?number}} exif
+ *   - parsed by generate-gallery.js; null when the source had no readable header
  * @property {Object.<string, ImageVersion>} versions
  */
 

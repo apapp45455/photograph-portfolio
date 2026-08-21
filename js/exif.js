@@ -21,7 +21,7 @@ export class ExifMetadataReader {
     if (!exif) return { status: "empty", message: "No EXIF data found" };
 
     const values = {
-      camera: [exif.make, exif.model].filter(Boolean).join(" "),
+      camera: ExifMetadataReader.formatCamera(exif.make, exif.model),
       aperture: ExifMetadataReader.formatAperture(exif.fNumber),
       shutter: ExifMetadataReader.formatShutterSpeed(exif.exposureTime),
       iso: exif.iso || "--",
@@ -34,6 +34,19 @@ export class ExifMetadataReader {
     return hasMetadata
       ? { status: "ready", values }
       : { status: "empty", message: "No EXIF data found" };
+  }
+
+  /**
+   * Canon writes Make "Canon" and Model "Canon EOS R50", so joining them read
+   * "Canon Canon EOS R50". A model that already names its maker stands alone.
+   * Not a general de-duplication: "JK Imaging, Ltd." / "KODAK PIXPRO C1" is an OEM
+   * legal name against a brand, which no string rule can collapse correctly, so it
+   * keeps both rather than guessing.
+   */
+  static formatCamera(make, model) {
+    if (!model) return make || "";
+    if (!make) return model;
+    return model.toLowerCase().startsWith(make.toLowerCase()) ? model : `${make} ${model}`;
   }
 
   static formatAperture(fNumber) {

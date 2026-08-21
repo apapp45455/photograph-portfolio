@@ -128,6 +128,7 @@ test.describe('lightbox', () => {
     });
 
     test('renders EXIF from the manifest, fetching nothing', async ({ page }) => {
+        test.skip(homePhotos.length < 2, 'needs two photos to page between');
         // The panel used to be filled by exif-js parsing the header of item.original —
         // the full-resolution file, up to 3.5MB, for a photo shown at 459KB, repeated on
         // every next/prev. Both the CDN script and the original are now unreachable from
@@ -146,8 +147,17 @@ test.describe('lightbox', () => {
         await expect(metadata.locator('.metadata-grid')).toBeVisible({ timeout: 30_000 });
         await expect(metadata).toContainText('Camera');
 
+        // Proving a request did *not* happen needs something that did to sync against:
+        // the grid locator is already visible from photo #1, so it resolves on the first
+        // poll and offenders could be read before CDP delivered anything. CDP preserves
+        // order, so once the next photo's own image lands, a re-introduced fetch from
+        // the same task has landed too.
+        const next = homePhotos[1];
+        const nextImageLoaded = page.waitForResponse((response) =>
+            decodeURIComponent(response.url()).endsWith(next.versions.large.jpg));
+
         await page.keyboard.press('ArrowRight');
-        await expect(metadata.locator('.metadata-grid')).toBeVisible();
+        await nextImageLoaded;
 
         expect(offenders).toEqual([]);
     });
@@ -174,25 +184,34 @@ test.describe('lightbox', () => {
         await expect(image).toHaveAttribute('src', firstSrc);
     });
 
-    test('rapid navigation never leaves stale metadata behind', async ({ page }) => {
-        test.skip(galleryData.length < 3, 'needs at least three photos');
+    test('rapid navigation leaves the panel describing the photo on screen', async ({ page }) => {
+        test.skip(homePhotos.length < 3, 'needs at least three photos');
 
+        // This used to assert the panel stopped changing, which guarded metadata
+        // arriving out of order through pendingImageRequestId. That path is gone —
+        // the read is synchronous against the manifest — so comparing the panel to
+        // its own earlier text is now true by construction and guards nothing.
+        // The property the deleted guard actually protected is that the panel
+        // describes the photo being shown, so assert that against the manifest.
         await page.goto('/');
         await page.locator('.gallery-item-wrapper').first().click();
 
-        // Fire faster than images/EXIF can resolve — exercises pendingImageRequestId.
-        for (let i = 0; i < 5; i += 1) {
+        const steps = 5;
+        for (let i = 0; i < steps; i += 1) {
             await page.keyboard.press('ArrowRight');
         }
 
-        const metadata = page.locator('#lightbox-metadata');
-        await expect(metadata.locator('.metadata-grid, .metadata-empty, .metadata-error'))
-            .toBeVisible({ timeout: 30_000 });
+        const expected = homePhotos[steps % homePhotos.length];
+        test.skip(!expected.exif, 'the landing photo has no EXIF to compare against');
 
-        // Once settled, a late in-flight response must not overwrite it.
-        const settled = await metadata.textContent();
-        await page.waitForTimeout(2000);
-        expect(await metadata.textContent()).toBe(settled);
+        await expect(page.locator('#lightbox-img'))
+            .toHaveAttribute('src', new RegExp(`${expected.versions.large.jpg.split('/').pop().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`));
+
+        // Restated rather than reusing ExifMetadataReader, so a formatter bug fails here.
+        const metadata = page.locator('#lightbox-metadata');
+        await expect(metadata.locator('.metadata-grid')).toBeVisible();
+        if (expected.exif.iso) await expect(metadata).toContainText(String(expected.exif.iso));
+        if (expected.exif.fNumber) await expect(metadata).toContainText(`f/${expected.exif.fNumber.toFixed(1)}`);
     });
 
     test('a thumbnail can be reached and opened from the keyboard', async ({ page }) => {
