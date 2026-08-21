@@ -66,9 +66,12 @@ export class ExifMetadataReader {
 
 export class MetadataRenderer {
   render(container, metadata) {
+    // Only "ready" and "empty" reach here. The three cases that produced "error" —
+    // the file: protocol, a failed image load, an unavailable reader — were all
+    // deleted along with the fetch, so a "metadata-error" branch would be unreachable.
     if (metadata.status !== "ready") {
       container.replaceChildren(createElement("div", {
-        className: metadata.status === "empty" ? "metadata-empty" : "metadata-error",
+        className: "metadata-empty",
         textContent: metadata.message,
       }));
       return;

@@ -15,6 +15,21 @@ const IGNORED_CONSOLE = [
 ];
 
 /**
+ * A request that must not happen once EXIF comes off the manifest: the exif-js CDN, or
+ * an original under images/. Extensions track ALLOWED_EXTENSIONS in
+ * generate-gallery.js — a .png source is a legal `original`, and matching only .jpg
+ * would make the regression invisible for that photo while the test still passed.
+ * Deliberately not anchored with $: a cache-busting query would hide one otherwise.
+ * `[^/]+` keeps derivatives out, since those live one directory deeper.
+ */
+function forbiddenMetadataRequest(url) {
+    const target = decodeURIComponent(url);
+    if (/jsdelivr|exif-js/.test(target)) return `CDN: ${target}`;
+    if (/\/images\/[^/]+\.(jpe?g|png)(\?|#|$)/i.test(target)) return `original: ${target}`;
+    return null;
+}
+
+/**
  * The value cell of one metadata row. Scoped deliberately: asserting on the whole
  * panel lets an ISO of 100 be satisfied by a 1/1000s shutter, and 200 by a 200mm lens.
  */
@@ -143,9 +158,8 @@ test.describe('lightbox', () => {
         // this path, so assert on the requests rather than only on the rendered values.
         const offenders = [];
         page.on('request', (request) => {
-            const url = decodeURIComponent(request.url());
-            if (/jsdelivr|exif-js/.test(url)) offenders.push(`CDN: ${url}`);
-            if (/\/images\/[^/]+\.jpe?g$/i.test(url)) offenders.push(`original: ${url}`);
+            const offender = forbiddenMetadataRequest(request.url());
+            if (offender) offenders.push(offender);
         });
 
         await page.goto('/');
@@ -477,9 +491,8 @@ for (const series of seriesData) {
         test('the lightbox opens on the series photos', async ({ page }) => {
             const fetched = [];
             page.on('request', (request) => {
-                const target = decodeURIComponent(request.url());
-                if (/jsdelivr|exif-js/.test(target)) fetched.push(`CDN: ${target}`);
-                if (/\/images\/[^/]+\.jpe?g$/i.test(target)) fetched.push(`original: ${target}`);
+                const offender = forbiddenMetadataRequest(request.url());
+                if (offender) fetched.push(offender);
             });
 
             await page.goto(url);
