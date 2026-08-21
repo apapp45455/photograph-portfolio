@@ -380,6 +380,31 @@ async function checkHomePreload() {
     }
 }
 
+/**
+ * The home grid narrows its srcset to CONFIG.GRID_TIERS, matching tier names against
+ * the manifest. getVersionSrcset filters by name, so a tier renamed in the generator
+ * leaves those <source> elements with an empty srcset — and a <source> that parses to
+ * zero candidates is skipped, dropping every tile to the 400px thumb at full width.
+ * Nothing else notices: the files all still exist, so check:gallery and the e2e asset
+ * assertions stay green while the grid quietly serves thumbnails.
+ */
+async function checkGridTiers(data) {
+    const { CONFIG: FRONTEND } = await loadBrowserModule('js/config.js');
+    const tiers = FRONTEND.GRID_TIERS;
+
+    if (!Array.isArray(tiers) || tiers.length === 0) {
+        fail('js/config.js: CONFIG.GRID_TIERS must be a non-empty array of tier names');
+        return;
+    }
+
+    const available = new Set(Object.keys(data[0].versions || {}));
+    for (const tier of tiers) {
+        if (!available.has(tier)) {
+            fail(`js/config.js: CONFIG.GRID_TIERS names "${tier}", which ${CONFIG.DATA} does not have (it has ${[...available].join(', ')}) — the home grid would fall back to the thumb at full width`);
+        }
+    }
+}
+
 async function main() {
     if (!fs.existsSync(CONFIG.DATA)) {
         fail(`Missing manifest: ${CONFIG.DATA} (run \`npm run build:gallery\`)`);
@@ -493,6 +518,7 @@ async function main() {
 
     checkSeries(data);
     await checkHomePreload();
+    await checkGridTiers(data);
 
     if (DEEP) {
         await verifyPixels(data);

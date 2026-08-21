@@ -2,7 +2,8 @@ import { createElement } from "./utils.js";
 
 const EXIF_CDN = "https://cdn.jsdelivr.net/npm/exif-js";
 
-/** In-flight or successful fetch, shared by every read; cleared again on failure. */
+/** In-flight or successful fetch, shared by every read; cleared whenever a load
+ *  produced no reader, so the next open tries again. */
 let exifApiRequest = null;
 
 /**
@@ -18,18 +19,24 @@ function loadExifApi() {
   exifApiRequest = exifApiRequest || new Promise((resolve) => {
     const script = document.createElement("script");
     script.src = EXIF_CDN;
-    script.onload = () => resolve(window.EXIF || null);
-    script.onerror = () => {
-      // Two separate things. Resolving null settles the panel on "no metadata"
-      // rather than leaving it on "Loading metadata" forever. Clearing the cache
-      // lets the *next* open try again: the fetch now starts when a photo is
-      // opened, which on a phone can land mid-handover, and without this one dead
-      // spot would disable metadata for the rest of the visit even after the
-      // network came back. A genuinely blocked CDN just re-fails, cheaply.
-      // Safe here — the assignment below has completed by the time this fires.
-      exifApiRequest = null;
-      resolve(null);
+    // Both handlers route through here, because `error` is the rarer failure. A
+    // classic script only fires it when the *fetch* fails; a captive portal or a
+    // filter answering 200 text/html is fetched and executed, the parse error goes
+    // to window.onerror, and the element fires `load` with window.EXIF still
+    // undefined. Resetting only in onerror would leave that case caching a settled
+    // null — metadata dead for the rest of the visit, which is the state the retry
+    // exists to prevent, reached by the way phones actually fail.
+    const settle = (api) => {
+      if (!api) {
+        exifApiRequest = null;
+        script.remove(); // else a blocked CDN leaves one dead tag per open
+      }
+      resolve(api);
     };
+    // Safe to assign above: the `exifApiRequest =` below has completed by the time
+    // either handler fires.
+    script.onload = () => settle(window.EXIF || null);
+    script.onerror = () => settle(null);
     document.head.appendChild(script);
   });
 

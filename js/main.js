@@ -21,11 +21,8 @@ class App {
       itemRenderer: new GalleryItemRenderer({
         breakpoints: CONFIG.BREAKPOINTS,
         classes: CONFIG.CLASSES,
-        // A grid tile is at most 33vw on desktop and 100vw on a phone, so `large`
-        // (1920px) is never the right pick — but a 3x phone computes 390 * 3 = 1170
-        // and would take it anyway, spending 673KB on a 390px-wide box. Capping at
-        // `medium` still leaves 2.7x density there. `large` is the lightbox's tier.
-        tiers: ["thumb", "medium"],
+        // See CONFIG.GRID_TIERS: `large` is the lightbox's tier, not the grid's.
+        tiers: CONFIG.GRID_TIERS,
       }),
       classes: CONFIG.CLASSES,
       openEventName: CONFIG.EVENTS.OPEN_LIGHTBOX,
