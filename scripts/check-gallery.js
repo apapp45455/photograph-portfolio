@@ -472,11 +472,33 @@ async function main() {
         // formatters do not expect renders as "--" across the whole panel with nothing
         // saying why — the manifest is the only place this can now be caught.
         if (entry.exif !== null && entry.exif !== undefined) {
-            const EXIF_FIELDS = ['make', 'model', 'fNumber', 'exposureTime', 'iso', 'focalLength'];
-            const unknown = Object.keys(entry.exif).filter((key) => !EXIF_FIELDS.includes(key));
-            if (unknown.length) fail(`${label}: exif has unexpected field(s) ${unknown.join(', ')} — run \`npm run build:gallery\``);
-            for (const key of EXIF_FIELDS) {
-                if (!(key in entry.exif)) fail(`${label}: exif is missing "${key}" — run \`npm run build:gallery\``);
+            // Everything in this script accumulates through fail() so one bad entry
+            // still reports every other problem — and a hand-edited manifest is exactly
+            // what this block is here for. `'make' in 5` throws, so the shape has to be
+            // established before anything indexes into it.
+            if (typeof entry.exif !== 'object' || Array.isArray(entry.exif)) {
+                fail(`${label}: exif is ${Array.isArray(entry.exif) ? 'an array' : typeof entry.exif}, expected an object or null — run \`npm run build:gallery\``);
+            } else {
+                const STRING_FIELDS = ['make', 'model'];
+                const NUMBER_FIELDS = ['fNumber', 'exposureTime', 'iso', 'focalLength'];
+                const EXIF_FIELDS = [...STRING_FIELDS, ...NUMBER_FIELDS];
+
+                const unknown = Object.keys(entry.exif).filter((key) => !EXIF_FIELDS.includes(key));
+                if (unknown.length) fail(`${label}: exif has unexpected field(s) ${unknown.join(', ')} — run \`npm run build:gallery\``);
+
+                for (const key of EXIF_FIELDS) {
+                    if (!(key in entry.exif)) {
+                        fail(`${label}: exif is missing "${key}" — run \`npm run build:gallery\``);
+                        continue;
+                    }
+                    // Types matter as much as presence: the formatters do no validation,
+                    // so `iso: "high"` reaches the panel and renders as "high".
+                    const value = entry.exif[key];
+                    const wanted = STRING_FIELDS.includes(key) ? 'string' : 'number';
+                    if (value !== null && typeof value !== wanted) {
+                        fail(`${label}: exif.${key} is ${typeof value} "${value}", expected ${wanted} or null — run \`npm run build:gallery\``);
+                    }
+                }
             }
         }
 

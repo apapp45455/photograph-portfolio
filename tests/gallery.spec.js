@@ -151,9 +151,15 @@ test.describe('lightbox', () => {
         await page.goto('/');
         await page.locator('.gallery-item-wrapper').first().click();
 
+        // `exif: null` is legitimate output for a source with no parseable header, and
+        // homePhotos[0] is positional — so guard the render half only. Skipping the
+        // whole test would take the request assertion with it, and that is the point
+        // of this one.
         const metadata = page.locator('#lightbox-metadata');
-        await expect(metadata.locator('.metadata-grid')).toBeVisible({ timeout: 30_000 });
-        await expect(metadata).toContainText('Camera');
+        if (homePhotos[0].exif) {
+            await expect(metadata.locator('.metadata-grid')).toBeVisible({ timeout: 30_000 });
+            await expect(metadata).toContainText('Camera');
+        }
 
         // Proving a request did *not* happen needs something that did to sync against:
         // the grid locator is already visible from photo #1, so it resolves on the first
@@ -498,12 +504,15 @@ for (const series of seriesData) {
             // are exactly where `exif` could be dropped. Accepting .metadata-empty here
             // would let that through — and the transfer win this was measured on is the
             // series page, hence the request checks too.
+            // Guarded for the same reason as the home-page test: a headerless photo here
+            // is data, not a regression, and `fetched` must be asserted either way.
             const metadata = page.locator('#lightbox-metadata');
-            await expect(metadata.locator('.metadata-grid')).toBeVisible({ timeout: 30_000 });
-
             const entry = galleryData.find((item) => item.filename === series.photos[0].filename);
-            if (entry && entry.exif && entry.exif.iso) {
-                await expect(metadataValue(metadata, 'ISO')).toHaveText(String(entry.exif.iso));
+            if (entry && entry.exif) {
+                await expect(metadata.locator('.metadata-grid')).toBeVisible({ timeout: 30_000 });
+                if (entry.exif.iso) {
+                    await expect(metadataValue(metadata, 'ISO')).toHaveText(String(entry.exif.iso));
+                }
             }
             expect(fetched).toEqual([]);
 
