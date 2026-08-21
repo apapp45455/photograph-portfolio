@@ -8,12 +8,13 @@
     "build:gallery": "node image-tools/generate-gallery.js",
     "check:gallery": "node scripts/check-gallery.js",
     "check:gallery:deep": "node scripts/check-gallery.js --deep",
+    "check:generated": "bash scripts/check-generated.sh",
     "lint": "npm run lint:js && npm run lint:css && npm run lint:html",
     "lint:js": "eslint .",
     "lint:css": "stylelint \"**/*.css\"",
-    "lint:html": "html-validate index.html",
+    "lint:html": "html-validate index.html projects/*.html",
     "test:e2e": "playwright test",
-    "test": "npm run lint && npm run check:gallery && npm run test:e2e"
+    "test": "npm run lint && npm run check:gallery && npm run check:generated && npm run test:e2e"
   },
   "repository": {
     "type": "git",

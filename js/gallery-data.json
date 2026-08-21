@@ -1,6 +1,7 @@
 [
   {
     "filename": "Canon R50特寫.jpg",
+    "series": null,
     "original": "images/Canon R50特寫.jpg",
     "width": 5712,
     "height": 4284,
@@ -25,6 +26,7 @@
   },
   {
     "filename": "中原大學_室設.jpg",
+    "series": null,
     "original": "images/中原大學_室設.jpg",
     "width": 6000,
     "height": 4000,
@@ -49,10 +51,11 @@
   },
   {
     "filename": "中原大學_莊敬樓.jpg",
+    "series": null,
     "original": "images/中原大學_莊敬樓.jpg",
-    "width": 6000,
-    "height": 4000,
-    "aspectRatio": 1.5,
+    "width": 4000,
+    "height": 6000,
+    "aspectRatio": 0.6666666666666666,
     "versions": {
       "thumb": {
         "jpg": "images/optimized/中原大學_莊敬樓-thumb.jpg",
@@ -73,6 +76,7 @@
   },
   {
     "filename": "中原大學_黑冠麻鷺.jpg",
+    "series": null,
     "original": "images/中原大學_黑冠麻鷺.jpg",
     "width": 6000,
     "height": 4000,
@@ -97,6 +101,7 @@
   },
   {
     "filename": "信義_101.jpg",
+    "series": null,
     "original": "images/信義_101.jpg",
     "width": 4284,
     "height": 5712,
@@ -121,6 +126,7 @@
   },
   {
     "filename": "信義_新光三越.jpg",
+    "series": null,
     "original": "images/信義_新光三越.jpg",
     "width": 5712,
     "height": 4284,
@@ -145,6 +151,7 @@
   },
   {
     "filename": "內壢_火車站.jpg",
+    "series": null,
     "original": "images/內壢_火車站.jpg",
     "width": 3024,
     "height": 4032,
@@ -169,6 +176,7 @@
   },
   {
     "filename": "內壢火車站_天橋.jpg",
+    "series": null,
     "original": "images/內壢火車站_天橋.jpg",
     "width": 5328,
     "height": 4000,
@@ -193,6 +201,7 @@
   },
   {
     "filename": "四四南村_仰角.jpg",
+    "series": null,
     "original": "images/四四南村_仰角.jpg",
     "width": 6000,
     "height": 4000,
@@ -217,6 +226,7 @@
   },
   {
     "filename": "四四南村_店家.jpg",
+    "series": null,
     "original": "images/四四南村_店家.jpg",
     "width": 6000,
     "height": 4000,
@@ -241,10 +251,11 @@
   },
   {
     "filename": "新屋_永安漁港.jpg",
+    "series": null,
     "original": "images/新屋_永安漁港.jpg",
-    "width": 4898,
-    "height": 3265,
-    "aspectRatio": 1.5001531393568146,
+    "width": 3265,
+    "height": 4898,
+    "aspectRatio": 0.666598611678236,
     "versions": {
       "thumb": {
         "jpg": "images/optimized/新屋_永安漁港-thumb.jpg",
@@ -264,7 +275,133 @@
     }
   },
   {
+    "filename": "日本_會津若松城.jpg",
+    "series": "japan",
+    "original": "images/日本_會津若松城.jpg",
+    "width": 5328,
+    "height": 4000,
+    "aspectRatio": 1.332,
+    "versions": {
+      "thumb": {
+        "jpg": "images/optimized/日本_會津若松城-thumb.jpg",
+        "webp": "images/optimized/日本_會津若松城-thumb.webp",
+        "width": 400
+      },
+      "medium": {
+        "jpg": "images/optimized/日本_會津若松城-medium.jpg",
+        "webp": "images/optimized/日本_會津若松城-medium.webp",
+        "width": 1080
+      },
+      "large": {
+        "jpg": "images/optimized/日本_會津若松城-large.jpg",
+        "webp": "images/optimized/日本_會津若松城-large.webp",
+        "width": 1920
+      }
+    }
+  },
+  {
+    "filename": "日本_會津若松城_鳥居.jpg",
+    "series": "japan",
+    "original": "images/日本_會津若松城_鳥居.jpg",
+    "width": 4000,
+    "height": 5328,
+    "aspectRatio": 0.7507507507507507,
+    "versions": {
+      "thumb": {
+        "jpg": "images/optimized/日本_會津若松城_鳥居-thumb.jpg",
+        "webp": "images/optimized/日本_會津若松城_鳥居-thumb.webp",
+        "width": 400
+      },
+      "medium": {
+        "jpg": "images/optimized/日本_會津若松城_鳥居-medium.jpg",
+        "webp": "images/optimized/日本_會津若松城_鳥居-medium.webp",
+        "width": 1080
+      },
+      "large": {
+        "jpg": "images/optimized/日本_會津若松城_鳥居-large.jpg",
+        "webp": "images/optimized/日本_會津若松城_鳥居-large.webp",
+        "width": 1920
+      }
+    }
+  },
+  {
+    "filename": "日本_花見山公園.jpg",
+    "series": "japan",
+    "original": "images/日本_花見山公園.jpg",
+    "width": 5328,
+    "height": 4000,
+    "aspectRatio": 1.332,
+    "versions": {
+      "thumb": {
+        "jpg": "images/optimized/日本_花見山公園-thumb.jpg",
+        "webp": "images/optimized/日本_花見山公園-thumb.webp",
+        "width": 400
+      },
+      "medium": {
+        "jpg": "images/optimized/日本_花見山公園-medium.jpg",
+        "webp": "images/optimized/日本_花見山公園-medium.webp",
+        "width": 1080
+      },
+      "large": {
+        "jpg": "images/optimized/日本_花見山公園-large.jpg",
+        "webp": "images/optimized/日本_花見山公園-large.webp",
+        "width": 1920
+      }
+    }
+  },
+  {
+    "filename": "日本_霞城觀景台.jpg",
+    "series": "japan",
+    "original": "images/日本_霞城觀景台.jpg",
+    "width": 5328,
+    "height": 4000,
+    "aspectRatio": 1.332,
+    "versions": {
+      "thumb": {
+        "jpg": "images/optimized/日本_霞城觀景台-thumb.jpg",
+        "webp": "images/optimized/日本_霞城觀景台-thumb.webp",
+        "width": 400
+      },
+      "medium": {
+        "jpg": "images/optimized/日本_霞城觀景台-medium.jpg",
+        "webp": "images/optimized/日本_霞城觀景台-medium.webp",
+        "width": 1080
+      },
+      "large": {
+        "jpg": "images/optimized/日本_霞城觀景台-large.jpg",
+        "webp": "images/optimized/日本_霞城觀景台-large.webp",
+        "width": 1920
+      }
+    }
+  },
+  {
+    "filename": "日本_霞城觀景台2.jpg",
+    "series": "japan",
+    "original": "images/日本_霞城觀景台2.jpg",
+    "width": 5328,
+    "height": 4000,
+    "aspectRatio": 1.332,
+    "versions": {
+      "thumb": {
+        "jpg": "images/optimized/日本_霞城觀景台2-thumb.jpg",
+        "webp": "images/optimized/日本_霞城觀景台2-thumb.webp",
+        "width": 400
+      },
+      "medium": {
+        "jpg": "images/optimized/日本_霞城觀景台2-medium.jpg",
+        "webp": "images/optimized/日本_霞城觀景台2-medium.webp",
+        "width": 1080
+      },
+      "large": {
+        "jpg": "images/optimized/日本_霞城觀景台2-large.jpg",
+        "webp": "images/optimized/日本_霞城觀景台2-large.webp",
+        "width": 1920
+      }
+    }
+  },
+  {
     "filename": "桃園_麵屋虎千代.jpg",
+    "series": null,
     "original": "images/桃園_麵屋虎千代.jpg",
     "width": 4160,
     "height": 3120,
@@ -289,6 +426,7 @@
   },
   {
     "filename": "浮州.jpg",
+    "series": null,
     "original": "images/浮州.jpg",
     "width": 4160,
     "height": 3120,

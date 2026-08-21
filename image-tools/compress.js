@@ -26,6 +26,10 @@ async function compressImage(filePath) {
 
     try {
         await sharp(filePath)
+            // Auto-orient from EXIF so the stored pixels are already upright.
+            // generate-gallery.js rotates its derivatives, so without this the
+            // original and the derivatives would disagree on width/height.
+            .rotate()
             .jpeg({ 
                 quality: CONFIG.QUALITY, 
                 mozjpeg: CONFIG.MOZJPEG 

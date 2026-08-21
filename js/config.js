@@ -1,6 +1,8 @@
 export const CONFIG = {
   SELECTORS: {
     GALLERY: "#gallery-container",
+    SERIES_LIST: "#series-list",
+    SERIES_SECTION: "#series",
     LIGHTBOX: "#lightbox",
     LIGHTBOX_IMG: "#lightbox-img",
     LIGHTBOX_CAPTION: "#lightbox-caption",
@@ -12,6 +14,7 @@ export const CONFIG = {
   },
   PATHS: {
     GALLERY_DATA: "js/gallery-data.json",
+    SERIES_DATA: "js/series-data.json",
   },
   CLASSES: {
     ACTIVE: "active",
@@ -20,6 +23,8 @@ export const CONFIG = {
     GALLERY_ITEM_WRAPPER: "gallery-item-wrapper",
     GALLERY_ITEM: "gallery-item",
     LOADED: "loaded",
+    SERIES_CARD: "series-card",
+    PROJECT_ITEM: "project-item",
   },
   BREAKPOINTS: {
     MOBILE: 600,

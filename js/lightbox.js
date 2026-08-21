@@ -12,19 +12,44 @@ export class LightboxView {
   }
 
   open() {
+    // Remember where focus came from so Esc can hand it back instead of dropping
+    // the user at the top of the document.
+    this.previouslyFocused = document.activeElement;
     this.elements.container.classList.add(this.classes.ACTIVE);
     this.pageBody.style.overflow = "hidden";
+    this.elements.closeBtn.focus();
   }
 
   close() {
     this.elements.container.classList.remove(this.classes.ACTIVE);
     this.pageBody.style.overflow = "";
+    if (this.previouslyFocused && typeof this.previouslyFocused.focus === "function") {
+      this.previouslyFocused.focus();
+    }
+  }
+
+  /**
+   * aria-modal tells assistive tech the rest of the page is inert, so Tab must not
+   * be able to reach it. Cycle through the dialog's own controls instead.
+   */
+  trapFocus(event) {
+    const focusable = [this.elements.closeBtn, this.elements.prevBtn, this.elements.nextBtn];
+    const current = focusable.indexOf(document.activeElement);
+    const step = event.shiftKey ? -1 : 1;
+
+    event.preventDefault();
+    focusable[(Math.max(current, 0) + step + focusable.length) % focusable.length].focus();
   }
 
   showItem(item) {
     this.applyReservedMediaSize(item);
     this.elements.img.src = getLargestVersionUrl(item.versions, "jpg") || item.original;
-    this.elements.caption.textContent = formatPhotoTitle(item.filename);
+    // Series photos already carry an editorial caption; fall back to the filename only
+    // for the home grid, which has none.
+    const label = item.caption || formatPhotoTitle(item.filename);
+    this.elements.caption.textContent = label;
+    // The static alt="Enlarged view" would otherwise name every photo identically.
+    this.elements.img.alt = item.alt || label;
     this.triggerFadeAnimation();
   }
 
@@ -91,6 +116,7 @@ export class Lightbox {
       if (e.key === "Escape") this.close();
       if (e.key === "ArrowRight") this.showNext();
       if (e.key === "ArrowLeft") this.showPrev();
+      if (e.key === "Tab") this.view.trapFocus(e);
     });
   }
 

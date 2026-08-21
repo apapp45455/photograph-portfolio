@@ -18,9 +18,12 @@ const fs = require('fs');
 const path = require('path');
 
 const CONFIG = {
+    HOME_PAGE: 'index.html',
     IMAGES: 'images',
     OPTIMIZED: 'images/optimized',
     DATA: 'js/gallery-data.json',
+    SERIES_SOURCE: 'image-tools/series.json',
+    SERIES_DATA: 'js/series-data.json',
     SIZES: { thumb: 400, medium: 1080, large: 1920 },
     ALLOWED_EXTENSIONS: ['.jpg', '.jpeg', '.png']
 };
@@ -37,7 +40,7 @@ const warn = (msg) => warnings.push(msg);
  * Unicode-normalise a path so NFD (macOS) and NFC (Linux/git) filenames compare equal.
  * The gallery uses CJK filenames, so this is not theoretical.
  */
-const norm = (p) => p.normalize('NFC');
+const norm = (p) => String(p == null ? '' : p).normalize('NFC');
 
 function listFiles(dir) {
     if (!fs.existsSync(dir)) {
@@ -62,8 +65,11 @@ async function verifyPixels(data) {
 
         try {
             const meta = await sharp(sourcePath).metadata();
-            if (meta.width !== entry.width || meta.height !== entry.height) {
-                fail(`${entry.filename}: manifest says ${entry.width}x${entry.height}, file is ${meta.width}x${meta.height} — run \`npm run build:gallery\``);
+            // Compare against the auto-oriented size: that is what the manifest records
+            // and what the (rotated) derivatives actually are.
+            const { width, height } = meta.autoOrient || meta;
+            if (width !== entry.width || height !== entry.height) {
+                fail(`${entry.filename}: manifest says ${entry.width}x${entry.height}, file is ${width}x${height} — run \`npm run build:gallery\``);
             }
         } catch (error) {
             fail(`${entry.filename}: unreadable image (${error.message})`);
@@ -79,12 +85,213 @@ async function verifyPixels(data) {
                     if (meta.width !== version.width) {
                         fail(`${filePath}: ${meta.width}px wide, manifest declares ${version.width}px (${tier})`);
                     }
+                    // Height too: a re-cropped source keeps the same tier width, so width
+                    // alone cannot tell a stale derivative from a current one.
+                    const expectedHeight = Math.round(entry.height * (version.width / entry.width));
+                    if (Math.abs(meta.height - expectedHeight) > 1) {
+                        fail(`${filePath}: ${meta.width}x${meta.height}, but ${entry.filename} is ${entry.width}x${entry.height} — the source was replaced; run \`npm run build:gallery -- --force\``);
+                    }
                 } catch (error) {
                     fail(`${filePath}: unreadable image (${error.message})`);
                 }
             }
         }
     }
+}
+
+/**
+ * Rules about image-tools/series.json that the generator does not enforce: an id that
+ * cannot be a DOM token, two photos sharing alt text, a layout entry naming a photo
+ * that is not in the series.
+ *
+ * Staleness is deliberately not checked here. Comparing the generated file field by
+ * field means re-implementing SeriesCatalog.build() by hand, and the field list goes
+ * stale the moment series.json grows one — reopening the very hole it was written to
+ * close. The `gallery` CI job re-runs the generator and diffs the result instead,
+ * which is exact by construction and needs no maintenance.
+ */
+function checkSeriesSource(data) {
+    let source;
+    try {
+        source = JSON.parse(fs.readFileSync(CONFIG.SERIES_SOURCE, 'utf8')).series || [];
+    } catch (error) {
+        fail(`${CONFIG.SERIES_SOURCE} is not valid JSON: ${error.message}`);
+        return;
+    }
+
+    const byFilename = new Map(data.map((entry) => [norm(entry.filename), entry]));
+    const seenIds = new Set();
+
+    for (const definition of source) {
+        const label = `series "${definition.id}"`;
+
+        // Copy-pasting a series block and forgetting to change `id` yields two identical
+        // cards and duplicate DOM ids, which aria-labelledby resolves to the first of.
+        if (seenIds.has(definition.id)) fail(`${CONFIG.SERIES_SOURCE}: duplicate series id "${definition.id}"`);
+        seenIds.add(definition.id);
+
+        // The id becomes part of a DOM id that aria-labelledby references, and that
+        // attribute splits on whitespace — a space would silently cost the series card
+        // its accessible name.
+        if (!/^[a-z0-9][a-z0-9-]*$/i.test(String(definition.id || ''))) {
+            fail(`${CONFIG.SERIES_SOURCE}: series id "${definition.id}" must be letters, digits and hyphens (it is used as a DOM id)`);
+        }
+
+        try {
+            new RegExp(definition.match);
+        } catch (error) {
+            fail(`${label}: match "${definition.match}" is not a valid regular expression (${error.message})`);
+        }
+
+        // The generator appends a member missing from `layout` (dropping it would erase
+        // the photo from the site) and only warns — inside a CI step designed to be
+        // silent. Without this, a new 日本_ photo ships uncaptioned at the bottom with
+        // an alt derived from its filename, and all four jobs stay green.
+        const laidOut = new Set((definition.layout || []).map((item) => norm(item.file)));
+        for (const entry of data) {
+            if (entry.series !== definition.id || laidOut.has(norm(entry.filename))) continue;
+            fail(`${label}: "${entry.filename}" belongs to it but has no layout entry — it would ship at the end without a caption`);
+        }
+
+        const seenAlts = new Map();
+        for (const item of definition.layout || []) {
+            if (!item.file) {
+                fail(`${label}: a layout entry has no "file" key`);
+                continue;
+            }
+
+            // Dropped at build time with a warning — but CI never runs the build, so
+            // without this a 臺/台 typo is a silent no-op.
+            const entry = byFilename.get(norm(item.file));
+            if (!entry) {
+                fail(`${label}: layout lists "${item.file}", which is not in ${CONFIG.IMAGES}/`);
+            } else if (entry.series !== definition.id) {
+                fail(`${label}: layout lists "${item.file}", which belongs to series "${entry.series || 'none'}"`);
+            }
+
+            // alt exists precisely because two frames can share a caption; a copy-pasted
+            // layout block would otherwise give two tiles the same accessible name.
+            // Skipping a missing one would let it fall back to the filename unnoticed.
+            if (!item.alt) {
+                fail(`${label}: layout entry "${item.file}" has no "alt" — it would fall back to its filename`);
+                continue;
+            }
+            const first = seenAlts.get(item.alt);
+            if (first) fail(`${label}: "${item.file}" and "${first}" share the alt text "${item.alt}"`);
+            else seenAlts.set(item.alt, item.file);
+        }
+    }
+}
+
+/**
+ * The series manifest must stay in step with the gallery manifest: a photo tagged
+ * with a series has to appear on that series' page, and every photo the page lists
+ * has to exist. Otherwise a photo silently disappears from the site — it is absent
+ * from the home grid *and* from the series page.
+ */
+function checkSeries(data) {
+    const hasSource = fs.existsSync(CONFIG.SERIES_SOURCE);
+    const hasOutput = fs.existsSync(CONFIG.SERIES_DATA);
+
+    if (!hasSource) {
+        if (hasOutput) warn(`${CONFIG.SERIES_DATA} exists but ${CONFIG.SERIES_SOURCE} does not`);
+        return;
+    }
+    if (!hasOutput) {
+        fail(`Missing ${CONFIG.SERIES_DATA} (run \`npm run build:gallery\`)`);
+        return;
+    }
+
+    let series;
+    try {
+        series = JSON.parse(fs.readFileSync(CONFIG.SERIES_DATA, 'utf8'));
+    } catch (error) {
+        fail(`${CONFIG.SERIES_DATA} is not valid JSON: ${error.message}`);
+        return;
+    }
+    if (!Array.isArray(series)) {
+        fail(`${CONFIG.SERIES_DATA} must be an array, got ${typeof series}`);
+        return;
+    }
+
+    checkSeriesSource(data);
+
+    const knownIds = new Set(series.map((entry) => entry.id));
+    const byFilename = new Map(data.map((entry) => [norm(entry.filename), entry]));
+
+    for (const entry of data) {
+        if (entry.series !== null && entry.series !== undefined && !knownIds.has(entry.series)) {
+            fail(`${entry.filename}: tagged with unknown series "${entry.series}"`);
+        }
+    }
+
+    for (const definition of series) {
+        const label = `series "${definition.id}"`;
+
+        if (!definition.cover) {
+            fail(`${label}: has no cover photo`);
+        } else if (definition.cover.series !== definition.id) {
+            // The cover is looked up across the whole manifest, so a typo in `cover` or
+            // `match` yields a photo that is the series' cover *and* still in the home
+            // grid — the one invariant this whole layout is built on.
+            fail(`${label}: cover "${definition.cover.filename}" belongs to series "${definition.cover.series}"`);
+        }
+        if (definition.page && !fs.existsSync(definition.page)) {
+            fail(`${label}: page "${definition.page}" does not exist`);
+        }
+
+        // series-data.json embeds the cover rather than referencing it, and every other
+        // check reads the copy's own fields — so a commit that misses the regenerated
+        // series-data.json renders stale width/height on the home page's LCP element
+        // with all four CI jobs green.
+        if (definition.cover) {
+            const source = data.find((entry) => norm(entry.filename) === norm(definition.cover.filename));
+            if (source && JSON.stringify(source) !== JSON.stringify(definition.cover)) {
+                fail(`${label}: embedded cover differs from its ${CONFIG.DATA} entry — run \`npm run build:gallery\``);
+            }
+        }
+
+        const members = data.filter((entry) => entry.series === definition.id);
+        if (members.length === 0) fail(`${label}: no photo matches it`);
+        if (definition.count !== members.length) {
+            fail(`${label}: count is ${definition.count}, ${members.length} photos are tagged with it`);
+        }
+
+        const listed = new Set();
+        for (const photo of definition.photos || []) {
+            const filename = norm(photo.filename);
+            if (listed.has(filename)) fail(`${label}: "${photo.filename}" is listed twice`);
+            listed.add(filename);
+
+            const entry = byFilename.get(filename);
+            if (!entry) {
+                fail(`${label}: lists "${photo.filename}", which has no gallery entry`);
+            } else if (entry.series !== definition.id) {
+                fail(`${label}: lists "${photo.filename}", which belongs to series "${entry.series}"`);
+            }
+            if (!['full', 'half'].includes(photo.span)) {
+                fail(`${label}/${photo.filename}: span is "${photo.span}", expected "full" or "half"`);
+            }
+        }
+
+        // The source-level form of this rule lives in checkSeriesSource: the generator
+        // always appends unlisted members, so comparing against the generated file
+        // could only ever catch a hand-edit — which the regenerate-and-diff gate covers.
+    }
+
+    // index.html reserves the band's height before JS inserts the cards. It cannot read
+    // the manifest, so the count is declared there — and would silently under-reserve
+    // (reintroducing the shift it was added to prevent) the moment a series is added.
+    if (fs.existsSync(CONFIG.HOME_PAGE)) {
+        const declared = /--series-count:\s*(\d+)/.exec(fs.readFileSync(CONFIG.HOME_PAGE, 'utf8'));
+        if (!declared) {
+            fail(`${CONFIG.HOME_PAGE}: #series-list has no --series-count to reserve space with`);
+        } else if (Number(declared[1]) !== series.length) {
+            fail(`${CONFIG.HOME_PAGE}: --series-count is ${declared[1]}, ${CONFIG.SERIES_DATA} has ${series.length} series`);
+        }
+    }
+
+    console.log(`Checked ${series.length} series covering ${data.filter((e) => e.series).length} photos.`);
 }
 
 async function main() {
@@ -197,6 +404,8 @@ async function main() {
             warn(`${CONFIG.OPTIMIZED}/${file} is not referenced by any entry (orphan)`);
         }
     }
+
+    checkSeries(data);
 
     if (DEEP) {
         await verifyPixels(data);
