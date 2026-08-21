@@ -349,9 +349,21 @@ async function checkHomePreload() {
         const found = new RegExp(`\\b${attribute}="([^"]*)"`).exec(tag[0]);
         if (!found) {
             fail(`${CONFIG.HOME_PAGE}: the cover preload has no ${attribute}`);
-        } else if (norm(found[1]) !== norm(want)) {
-            fail(`${CONFIG.HOME_PAGE}: preload ${attribute} is\n  ${found[1]}\nbut SeriesCardRenderer.createCover builds\n  ${want}`);
+            continue;
         }
+
+        // Byte-exact, deliberately not norm(): every other comparison in this file
+        // joins a filesystem name to a manifest entry, where macOS handing back NFD is
+        // noise. Both sides here are URLs, and Pages serves paths byte-exactly — a
+        // filename pasted from Finder in NFD is a *different* URL that 404s, while
+        // <picture> still fetches the NFC one from the manifest. Normalising would wave
+        // through precisely the wasted LCP round trip this guard exists to prevent.
+        if (found[1] === want) continue;
+
+        const detail = norm(found[1]) === norm(want)
+            ? '\n  (same characters — these differ only in Unicode normalisation, which the diff above cannot show)'
+            : '';
+        fail(`${CONFIG.HOME_PAGE}: preload ${attribute} is\n  ${found[1]}\nbut SeriesCardRenderer.createCover builds\n  ${want}${detail}`);
     }
 }
 

@@ -9,13 +9,19 @@
   --accent-soft: #c9b083;
 
   /* Cormorant Garamond is fetched; the CJK faces are whatever the device already has
-     (PingFang TC on Apple, 微軟正黑體 on Windows, Noto Sans CJK on Android). Serving
-     Noto Sans TC from Google cost 164KB of render-blocking CSS plus ~600KB of woff2
-     that outranked the photos in the fetch queue — for a gothic the reader cannot
-     tell apart from the local one. Latin glyphs still resolve to Cormorant first in
-     headings; CJK falls past it to the system stack. */
-  --font-heading: "Cormorant Garamond", system-ui, "PingFang TC", "Microsoft JhengHei", "Noto Sans TC", sans-serif;
-  --font-body: system-ui, "PingFang TC", "Microsoft JhengHei", "Noto Sans TC", sans-serif;
+     (PingFang TC on Apple, 微軟正黑體 on Windows, Noto Sans CJK TC on Android/Linux).
+     Serving Noto Sans TC from Google cost 164KB of render-blocking CSS plus ~600KB of
+     woff2 that outranked the photos in the fetch queue — for a gothic the reader
+     cannot tell apart from the local one.
+
+     The TC faces are named ahead of system-ui on purpose. On macOS and iOS system-ui
+     resolves to a composite whose CJK member follows the *OS UI language*, so on a
+     Japanese or Simplified-Chinese device it would render this zh-Hant copy in
+     Hiragino Sans or PingFang SC and never reach PingFang TC — visible on 過, 直, 每,
+     戶 and most of a paragraph. lang="zh-Hant" does not steer an explicit system-ui
+     keyword. system-ui stays at the back as a sane last resort before sans-serif. */
+  --font-heading: "Cormorant Garamond", "PingFang TC", "Microsoft JhengHei", "Noto Sans CJK TC", "Noto Sans TC", system-ui, sans-serif;
+  --font-body: "PingFang TC", "Microsoft JhengHei", "Noto Sans CJK TC", "Noto Sans TC", system-ui, sans-serif;
   --transition-speed: 0.3s;
   --lightbox-bg: rgba(250, 248, 243, 0.97); /* Gallery-white lightbox */
 }
