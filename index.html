@@ -27,7 +27,7 @@
          late-arriving-font swap part of the design. -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;1,400&display=swap" onload="this.rel='stylesheet'" />
+    <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;1,400&display=swap" onload="this.onload=null;this.rel='stylesheet'" />
     <noscript>
       <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;1,400&display=swap" />
     </noscript>
@@ -124,11 +124,6 @@
       <button type="button" class="nav-btn next-btn" id="next-btn" aria-label="Next photo">&#10095;</button>
     </div>
 
-    <!-- defer: without it the parser stops here for a DNS lookup, TLS handshake and
-         download to jsdelivr, and exif-js is not needed until a photo is opened.
-         Deferred classic scripts and modules both run after parsing, in document
-         order, so window.EXIF is still defined before the entry point below. -->
-    <script defer src="https://cdn.jsdelivr.net/npm/exif-js"></script>
     <script type="module" src="js/main.js"></script>
   </body>
 </html>
