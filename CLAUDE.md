@@ -100,7 +100,12 @@ npm run build:gallery -- --force   # re-encode derivatives that already exist
 
 No CD job — GitHub Pages deploys from the branch on its own.
 
-`.github/workflows/claude-code-review.yml` runs `anthropics/claude-code-action@v1` on every non-draft PR (`opened` / `synchronize`) and posts inline + top-level review comments. Needs the `ANTHROPIC_API_KEY` repo secret; without it the job fails and the rest of CI is unaffected. It is advisory — it is not part of the `CI passed` gate.
+`.github/workflows/claude-code-review.yml` runs `anthropics/claude-code-action@v1` on every non-draft PR (`opened` / `synchronize`) and posts inline + top-level review comments. Needs the `CLAUDE_CODE_OAUTH_TOKEN` repo secret; without it the job fails and the rest of CI is unaffected. It is advisory — it is not part of the `CI passed` gate.
+
+Two things about it that cost time to work out:
+
+- **A change to this workflow cannot be tested on a PR.** The action refuses to run when the file differs from the copy on the default branch (`Skipping action due to workflow validation`), so the job goes green in ~1.5s without reviewing anything. A green check on a PR that edits this file means nothing; the change only takes effect once merged.
+- **A denied tool call is fatal**, not a graceful degradation: the run ends `is_error: true` having posted nothing. The `--allowedTools` list therefore has to cover everything the reviewer reaches for. The CI log reports `permission_denials_count` but never the tool names, so the job uploads `claude-execution-output.json` as an artifact on failure — that file is the only way to see which calls were refused.
 
 Notes:
 - The e2e suite starts its own `python3 -m http.server` via `playwright.config.js` (`webServer`), no manual serve needed.
