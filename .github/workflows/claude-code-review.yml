@@ -69,7 +69,27 @@ jobs:
             `confirmed: true`) for issues tied to specific lines.
             Only post GitHub comments — do not emit review text as chat messages.
 
+          # A denied tool call ends the run as is_error, so this list has to cover
+          # everything the reviewer actually reaches for, not just the happy path.
+          # LS/TodoWrite: track_progress renders the checklist from TodoWrite, and a
+          # reviewer that can Read/Grep/Glob but not list a directory is oddly crippled.
+          # gh api: the only way to read existing inline review threads — gh pr view
+          # shows top-level comments only. That is what a review of a PR with prior
+          # rounds of feedback needs, and PR #14 failed here after six threads had
+          # accumulated. git log/diff/show: reviewing the commits is the job.
+          # Everything added is read-only; the job's GITHUB_TOKEN is contents: read.
           claude_args: |
             --model claude-opus-5
             --max-turns 60
-            --allowedTools "Read,Grep,Glob,mcp__github_inline_comment__create_inline_comment,mcp__github_comment__update_claude_comment,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*)"
+            --allowedTools "Read,Grep,Glob,LS,TodoWrite,mcp__github_inline_comment__create_inline_comment,mcp__github_comment__update_claude_comment,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh api:*),Bash(git log:*),Bash(git diff:*),Bash(git show:*)"
+
+      # The CI log prints permission_denials_count but never the tool names, which left
+      # the last failure undiagnosable. Keep the raw execution log when the run fails.
+      - name: Upload execution log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: claude-review-execution-log
+          path: ${{ runner.temp }}/claude-execution-output.json
+          if-no-files-found: warn
+          retention-days: 7
