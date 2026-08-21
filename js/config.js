@@ -26,6 +26,13 @@ export const CONFIG = {
     SERIES_CARD: "series-card",
     PROJECT_ITEM: "project-item",
   },
+  // Tier names come from IMAGE_SIZES in image-tools/generate-gallery.js. A grid tile
+  // is at most 33vw on desktop and 100vw on a phone, so `large` is never the right
+  // pick — but a 3x phone computes 390 * 3 = 1170 and would take it anyway. Named here
+  // rather than inline in main.js so scripts/check-gallery.js can assert they still
+  // match the manifest: getVersionSrcset filters by name, so a rename would silently
+  // yield an empty srcset and drop every tile to the 400px thumb.
+  GRID_TIERS: ["thumb", "medium"],
   BREAKPOINTS: {
     MOBILE: 600,
     TABLET: 1024,

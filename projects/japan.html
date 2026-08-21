@@ -5,12 +5,19 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Japan · Tōhoku — 大衛的攝影網站</title>
     <meta name="description" content="五月的東北，山形與福島的五張照片 — 霞城觀景台的俯瞰、花見山公園的新綠、會津若松城的白牆。" />
+    <!-- Cormorant Garamond only. Noto Sans TC came from here too until it was measured:
+         CJK ships as ~100 unicode-range subsets, so five weights made this sheet 610KB
+         (164KB over the wire, render-blocking) and pulled ~600KB of woff2 that outranks
+         images in the fetch queue — the LCP photo sat behind it from 3.0s to 6.5s.
+         style.css now uses the device's own CJK face. preload+onload keeps even this
+         much smaller sheet off the critical path; display=swap already made the
+         late-arriving-font swap part of the design. -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@200;300;400;500;700&family=Cormorant+Garamond:ital,wght@0,400;0,500;1,400&display=swap"
-      rel="stylesheet"
-    />
+    <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500&display=swap" onload="this.onload=null;this.rel='stylesheet'" />
+    <noscript>
+      <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500&display=swap" />
+    </noscript>
     <link rel="stylesheet" href="../style.css" />
 
     <!-- Open Graph / Social Sharing -->
@@ -123,7 +130,6 @@
       <button type="button" class="nav-btn next-btn" id="next-btn" aria-label="Next photo">&#10095;</button>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/exif-js"></script>
     <script type="module" src="../js/project.js"></script>
   </body>
 </html>

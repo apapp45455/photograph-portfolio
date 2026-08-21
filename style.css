@@ -7,8 +7,21 @@
   --border-soft: #ece7dd; /* Faint warm divider */
   --accent-color: #b08d4f; /* Antique foil gold (燙金) */
   --accent-soft: #c9b083;
-  --font-heading: "Cormorant Garamond", "Noto Sans TC", serif;
-  --font-body: "Noto Sans TC", "Cormorant Garamond", sans-serif;
+
+  /* Cormorant Garamond is fetched; the CJK faces are whatever the device already has
+     (PingFang TC on Apple, 微軟正黑體 on Windows, Noto Sans CJK TC on Android/Linux).
+     Serving Noto Sans TC from Google cost 164KB of render-blocking CSS plus ~600KB of
+     woff2 that outranked the photos in the fetch queue — for a gothic the reader
+     cannot tell apart from the local one.
+
+     The TC faces are named ahead of system-ui on purpose. On macOS and iOS system-ui
+     resolves to a composite whose CJK member follows the *OS UI language*, so on a
+     Japanese or Simplified-Chinese device it would render this zh-Hant copy in
+     Hiragino Sans or PingFang SC and never reach PingFang TC — visible on 過, 直, 每,
+     戶 and most of a paragraph. lang="zh-Hant" does not steer an explicit system-ui
+     keyword. system-ui stays at the back as a sane last resort before sans-serif. */
+  --font-heading: "Cormorant Garamond", "PingFang TC", "Microsoft JhengHei", "Noto Sans CJK TC", "Noto Sans TC", system-ui, sans-serif;
+  --font-body: "PingFang TC", "Microsoft JhengHei", "Noto Sans CJK TC", "Noto Sans TC", system-ui, sans-serif;
   --transition-speed: 0.3s;
   --lightbox-bg: rgba(250, 248, 243, 0.97); /* Gallery-white lightbox */
 }
@@ -536,16 +549,6 @@ main {
   height: 1px;
   background: var(--accent-color);
   margin: 1.1rem auto 0;
-}
-
-.about-image {
-  width: 180px;
-  height: 180px;
-  border-radius: 50%;
-  object-fit: cover;
-  margin-bottom: 2rem;
-  border: 1px solid var(--border-soft);
-  box-shadow: 0 8px 24px rgba(176, 141, 79, 0.12);
 }
 
 .about-content p {

@@ -21,6 +21,8 @@ class App {
       itemRenderer: new GalleryItemRenderer({
         breakpoints: CONFIG.BREAKPOINTS,
         classes: CONFIG.CLASSES,
+        // See CONFIG.GRID_TIERS: `large` is the lightbox's tier, not the grid's.
+        tiers: CONFIG.GRID_TIERS,
       }),
       classes: CONFIG.CLASSES,
       openEventName: CONFIG.EVENTS.OPEN_LIGHTBOX,

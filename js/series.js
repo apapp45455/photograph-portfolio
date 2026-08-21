@@ -1,4 +1,4 @@
-import { createElement, getVersionSrcset, rebaseGalleryItem, withAssetBase } from "./utils.js";
+import { createElement, getVersionSrcset, rebaseGalleryItem, seriesCoverSizes, withAssetBase } from "./utils.js";
 import { GalleryItemRenderer } from "./gallery.js";
 
 /** macOS hands back NFD for CJK filenames; compare normalised so joins never silently miss. */
@@ -64,7 +64,8 @@ export class SeriesCardRenderer {
       source.srcset = getVersionSrcset(series.cover.versions, format);
       // Real boxes, not round ones: stacked below TABLET (the same switch style.css
       // uses), then 1.15fr of a content column that stops at 1400 - 40 = 1360px.
-      source.sizes = `(max-width: ${this.breakpoints.TABLET}px) calc(100vw - 40px), (max-width: 1440px) 55vw, 782px`;
+      // Lives in utils.js because index.html preloads this image with the same string.
+      source.sizes = seriesCoverSizes(this.breakpoints);
       picture.appendChild(source);
     }
 

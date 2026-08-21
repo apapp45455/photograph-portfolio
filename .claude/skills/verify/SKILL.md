@@ -30,6 +30,5 @@ Flows worth driving:
 
 ## Known noise (not failures)
 
-- `images/profile.jpg` 404 — intentional, `onerror` hides the About image
 - Cloudflare beacon CORS error on localhost — beacon only allows the production origin
 - Screenshots taken right after opening lightbox can catch the 0.3s fade animation mid-frame and look wrong; wait ~2s before capturing

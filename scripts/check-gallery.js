@@ -294,6 +294,140 @@ function checkSeries(data) {
     console.log(`Checked ${series.length} series covering ${data.filter((e) => e.series).length} photos.`);
 }
 
+/**
+ * `js/` is browser ESM, but package.json declares "type": "commonjs", which switches
+ * off Node's module-syntax detection — a plain `import()` of these files resolves them
+ * as CJS and throws. Loading the source through a data: URL sidesteps the extension
+ * lookup entirely. Safe because both files are dependency-free and touch no DOM at
+ * the top level; anything with imports of its own would need a real resolver.
+ */
+async function loadBrowserModule(file) {
+    const source = fs.readFileSync(file, 'utf8');
+    return import(`data:text/javascript;base64,${Buffer.from(source).toString('base64')}`);
+}
+
+/**
+ * index.html preloads the first series cover, because that <picture> is built by JS
+ * after two round trips and the preload scanner would otherwise never see it.
+ *
+ * The filename is therefore hard-coded in a hand-written file: reorder the series or
+ * swap a cover and the tag silently points at a photo that is no longer first. A
+ * mismatched srcset/sizes is *worse* than no preload — the browser downloads the
+ * preloaded candidate and then the one <picture> actually selects.
+ */
+async function checkHomePreload() {
+    if (!fs.existsSync(CONFIG.HOME_PAGE) || !fs.existsSync(CONFIG.SERIES_DATA)) return;
+
+    const html = fs.readFileSync(CONFIG.HOME_PAGE, 'utf8');
+
+    // Selected on both attributes rather than by one regex that pins their order:
+    // attribute order is not semantic, this <head> holds a second rel="preload" (the
+    // font stylesheet), and a reordered tag reported as a *missing* tag would send the
+    // next person hunting for something that is right there.
+    const tag = (html.match(/<link\b[^>]*>/gs) || [])
+        .find((link) => /\brel="preload"/.test(link) && /\bas="image"/.test(link));
+
+    let series;
+    try {
+        series = JSON.parse(fs.readFileSync(CONFIG.SERIES_DATA, 'utf8'));
+    } catch {
+        return; // checkSeries already reported the parse failure
+    }
+    if (!Array.isArray(series) || series.length === 0 || !series[0] || !series[0].cover) {
+        if (tag) fail(`${CONFIG.HOME_PAGE}: preloads a cover image, but ${CONFIG.SERIES_DATA} has no first cover`);
+        return;
+    }
+
+    if (!tag) {
+        fail(`${CONFIG.HOME_PAGE}: no <link rel="preload" as="image"> for the first series cover — its request waits on two round trips of JS`);
+        return;
+    }
+
+    // imagesrcset is asserted against the WebP candidates below, so without this a
+    // browser that cannot decode WebP preloads a file it can never use — and the
+    // guard would still be green.
+    if (!/\btype="image\/webp"/.test(tag)) {
+        fail(`${CONFIG.HOME_PAGE}: the cover preload has no type="image/webp", so a browser without WebP support would fetch a candidate it cannot decode`);
+    }
+
+    const utils = await loadBrowserModule('js/utils.js');
+    const { CONFIG: FRONTEND } = await loadBrowserModule('js/config.js');
+
+    const expected = {
+        imagesrcset: utils.getVersionSrcset(series[0].cover.versions, 'webp'),
+        imagesizes: utils.seriesCoverSizes(FRONTEND.BREAKPOINTS),
+    };
+
+    for (const [attribute, want] of Object.entries(expected)) {
+        const found = new RegExp(`\\b${attribute}="([^"]*)"`).exec(tag);
+        if (!found) {
+            fail(`${CONFIG.HOME_PAGE}: the cover preload has no ${attribute}`);
+            continue;
+        }
+
+        // Byte-exact, deliberately not norm(): every other comparison in this file
+        // joins a filesystem name to a manifest entry, where macOS handing back NFD is
+        // noise. Both sides here are URLs, and Pages serves paths byte-exactly — a
+        // filename pasted from Finder in NFD is a *different* URL that 404s, while
+        // <picture> still fetches the NFC one from the manifest. Normalising would wave
+        // through precisely the wasted LCP round trip this guard exists to prevent.
+        if (found[1] === want) continue;
+
+        const detail = norm(found[1]) === norm(want)
+            ? '\n  (same characters — these differ only in Unicode normalisation, which the diff above cannot show)'
+            : '';
+        fail(`${CONFIG.HOME_PAGE}: preload ${attribute} is\n  ${found[1]}\nbut SeriesCardRenderer.createCover builds\n  ${want}${detail}`);
+    }
+}
+
+/**
+ * The home grid narrows its srcset to CONFIG.GRID_TIERS, matching tier names against
+ * the manifest. getVersionSrcset filters by name, so a tier renamed in the generator
+ * leaves those <source> elements with an empty srcset — and a <source> that parses to
+ * zero candidates is skipped, dropping every tile to the 400px thumb at full width.
+ * Nothing else notices: the files all still exist, so check:gallery and the e2e asset
+ * assertions stay green while the grid quietly serves thumbnails.
+ */
+async function checkGridTiers(data) {
+    const { CONFIG: FRONTEND } = await loadBrowserModule('js/config.js');
+    const tiers = FRONTEND.GRID_TIERS;
+
+    if (!Array.isArray(tiers) || tiers.length === 0) {
+        fail('js/config.js: CONFIG.GRID_TIERS must be a non-empty array of tier names');
+        return;
+    }
+
+    // Sampled from the widest original, not data[0] (whichever filename sorts first):
+    // generateVersions writes min(cap, source width), so a source narrower than a cap
+    // collapses that tier onto the ones above it. The widest entry is the one most
+    // likely to keep every tier distinct.
+    const reference = data.reduce((widest, entry) => (entry.width > widest.width ? entry : widest));
+    const versions = Object.entries(reference.versions || {});
+    const available = new Set(versions.map(([tier]) => tier));
+
+    for (const tier of tiers) {
+        if (!available.has(tier)) {
+            fail(`js/config.js: CONFIG.GRID_TIERS names "${tier}", which ${reference.filename} does not have in ${CONFIG.DATA} (it has ${[...available].join(', ')}) — the home grid would fall back to the thumb at full width`);
+        }
+    }
+
+    // The other direction, and the likelier edit: the list growing back. "The grid
+    // looks soft on my 5K monitor, put large back" reinstates the regression this cap
+    // exists for — a 3x phone computes 390 * 3 = 1170, clears medium, and takes the
+    // 1920px file into a 390px box. Checking names-exist alone would stay green.
+    // Derived from the manifest rather than hard-coding "large", so renaming the tiers
+    // does not quietly disarm it.
+    const byWidth = versions.slice().sort((a, b) => b[1].width - a[1].width);
+    const [widest, runnerUp] = byWidth;
+
+    // Even the widest source can tie its top two tiers. Skipping is right rather than
+    // lenient: if they resolve to the same pixel width they are the same fetch, so
+    // there is no oversized candidate to keep out of the grid.
+    if (widest && (!runnerUp || runnerUp[1].width !== widest[1].width) && tiers.includes(widest[0])) {
+        fail(`js/config.js: CONFIG.GRID_TIERS includes "${widest[0]}" (${widest[1].width}px), the widest tier there is — a 3x phone at 100vw would take it for a tile a third that size. That tier belongs to the lightbox and the series pages.`);
+    }
+}
+
 async function main() {
     if (!fs.existsSync(CONFIG.DATA)) {
         fail(`Missing manifest: ${CONFIG.DATA} (run \`npm run build:gallery\`)`);
@@ -406,6 +540,8 @@ async function main() {
     }
 
     checkSeries(data);
+    await checkHomePreload();
+    await checkGridTiers(data);
 
     if (DEEP) {
         await verifyPixels(data);

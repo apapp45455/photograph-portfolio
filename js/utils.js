@@ -51,11 +51,30 @@ function getSortedVersions(versions) {
   return Object.values(versions).sort((a, b) => a.width - b.width);
 }
 
-export function getVersionSrcset(versions, format) {
-  return getSortedVersions(versions)
+/**
+ * @param {?string[]} tiers - restrict the candidates to these tiers, smallest-first;
+ *   omit for all of them. The home grid passes a subset: its tiles are never wide
+ *   enough to earn `large`, but a 3x phone at 100vw computes 1170px and would pick it.
+ */
+export function getVersionSrcset(versions, format, tiers = null) {
+  const candidates = tiers
+    ? Object.fromEntries(Object.entries(versions).filter(([tier]) => tiers.includes(tier)))
+    : versions;
+
+  return getSortedVersions(candidates)
     .filter((version) => version[format])
     .map((version) => `${version[format]} ${version.width}w`)
     .join(", ");
+}
+
+/**
+ * `sizes` for a home-page series cover. Exported rather than inlined in
+ * SeriesCardRenderer because index.html preloads that image and
+ * scripts/check-gallery.js asserts the two agree — one string, three readers.
+ * A mismatch is worse than no preload: the browser fetches both candidates.
+ */
+export function seriesCoverSizes(breakpoints) {
+  return `(max-width: ${breakpoints.TABLET}px) calc(100vw - 40px), (max-width: 1440px) 55vw, 782px`;
 }
 
 export function getLargestVersionUrl(versions, format) {
