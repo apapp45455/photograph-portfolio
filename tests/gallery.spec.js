@@ -70,6 +70,27 @@ test.describe('gallery grid', () => {
         await expect(img).toHaveAttribute('loading', 'lazy');
     });
 
+    // checkGridTiers validates the CONFIG.GRID_TIERS constant; nothing there notices if
+    // main.js stops passing it. Dropping that one argument sends getVersionSrcset back
+    // to every tier and puts the 1920px candidate on every tile — 673KB into a 390px
+    // box on a 3x phone — with the constant still correct and every other check green.
+    // This asserts the rendered result instead, so any route back to `large` fails.
+    test('home tiles never offer the largest tier', async ({ page }) => {
+        await page.goto('/');
+
+        const sources = page.locator('.gallery-item-wrapper source');
+        const count = await sources.count();
+        expect(count).toBeGreaterThan(0);
+
+        for (let i = 0; i < count; i += 1) {
+            const srcset = await sources.nth(i).getAttribute('srcset');
+            // A renamed tier yields "", and a <source> with no candidates is skipped —
+            // silently dropping every tile to the 400px thumb at full width.
+            expect(srcset).toBeTruthy();
+            expect(srcset).not.toContain('-large.');
+        }
+    });
+
     test('every generated file referenced by the manifest is reachable', async ({ request }) => {
         const urls = galleryData.flatMap((entry) => [
             entry.original,

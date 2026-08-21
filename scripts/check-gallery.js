@@ -397,7 +397,12 @@ async function checkGridTiers(data) {
         return;
     }
 
-    const versions = Object.entries(data[0].versions || {});
+    // Sampled from the widest original, not data[0] (whichever filename sorts first):
+    // generateVersions writes min(cap, source width), so a source narrower than a cap
+    // collapses that tier onto the ones above it. The widest entry is the one most
+    // likely to keep every tier distinct.
+    const reference = data.reduce((widest, entry) => (entry.width > widest.width ? entry : widest));
+    const versions = Object.entries(reference.versions || {});
     const available = new Set(versions.map(([tier]) => tier));
 
     for (const tier of tiers) {
@@ -412,8 +417,13 @@ async function checkGridTiers(data) {
     // 1920px file into a 390px box. Checking names-exist alone would stay green.
     // Derived from the manifest rather than hard-coding "large", so renaming the tiers
     // does not quietly disarm it.
-    const widest = versions.sort((a, b) => b[1].width - a[1].width)[0];
-    if (widest && tiers.includes(widest[0])) {
+    const byWidth = versions.slice().sort((a, b) => b[1].width - a[1].width);
+    const [widest, runnerUp] = byWidth;
+
+    // Even the widest source can tie its top two tiers. Skipping is right rather than
+    // lenient: if they resolve to the same pixel width they are the same fetch, so
+    // there is no oversized candidate to keep out of the grid.
+    if (widest && (!runnerUp || runnerUp[1].width !== widest[1].width) && tiers.includes(widest[0])) {
         fail(`js/config.js: CONFIG.GRID_TIERS includes "${widest[0]}" (${widest[1].width}px), the widest tier there is — a 3x phone at 100vw would take it for a tile a third that size. That tier belongs to the lightbox and the series pages.`);
     }
 }
