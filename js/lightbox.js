@@ -148,13 +148,15 @@ export class Lightbox {
 
     this.view.setMediaLoadingState(true);
     this.view.showItem(item);
-    this.metadataRenderer.renderLoading(this.view.elements.metadata);
+
+    // Metadata comes off the manifest already in memory, so it renders in the same
+    // task as showItem. There is no request left to arrive out of order, which is why
+    // the stale-metadata guard that used to follow this line is gone; the "Loading
+    // metadata…" placeholder went with it, since nothing is loading. requestId still
+    // matters below — the *image* does still race.
+    this.metadataRenderer.render(this.view.elements.metadata, this.metadataReader.read(item));
 
     await this.waitForImageSettled(requestId);
-
-    const metadata = await this.metadataReader.read(item.original);
-    if (this.isStaleRequest(requestId, item)) return;
-    this.metadataRenderer.render(this.view.elements.metadata, metadata);
   }
 
   waitForImageSettled(requestId) {
@@ -174,8 +176,4 @@ export class Lightbox {
     });
   }
 
-  isStaleRequest(requestId, item) {
-    return requestId !== this.pendingImageRequestId ||
-      this.galleryData[this.currentIndex].original !== item.original;
-  }
 }

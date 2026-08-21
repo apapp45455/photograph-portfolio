@@ -22,8 +22,7 @@ module.exports = [
             ecmaVersion: 2022,
             sourceType: 'module',
             globals: {
-                ...globals.browser,
-                EXIF: 'readonly' // exif-js CDN global
+                ...globals.browser
             }
         },
         rules: {

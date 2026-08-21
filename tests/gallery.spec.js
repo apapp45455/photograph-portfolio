@@ -14,6 +14,29 @@ const IGNORED_CONSOLE = [
     /static\.cloudflare/
 ];
 
+/**
+ * A request that must not happen once EXIF comes off the manifest: the exif-js CDN, or
+ * an original under images/. Extensions track ALLOWED_EXTENSIONS in
+ * generate-gallery.js — a .png source is a legal `original`, and matching only .jpg
+ * would make the regression invisible for that photo while the test still passed.
+ * Deliberately not anchored with $: a cache-busting query would hide one otherwise.
+ * `[^/]+` keeps derivatives out, since those live one directory deeper.
+ */
+function forbiddenMetadataRequest(url) {
+    const target = decodeURIComponent(url);
+    if (/jsdelivr|exif-js/.test(target)) return `CDN: ${target}`;
+    if (/\/images\/[^/]+\.(jpe?g|png)(\?|#|$)/i.test(target)) return `original: ${target}`;
+    return null;
+}
+
+/**
+ * The value cell of one metadata row. Scoped deliberately: asserting on the whole
+ * panel lets an ISO of 100 be satisfied by a 1/1000s shutter, and 200 by a 200mm lens.
+ */
+function metadataValue(metadata, label) {
+    return metadata.locator(`.metadata-item:has(.label:text-is("${label}")) .value`);
+}
+
 function collectConsoleErrors(page) {
     const errors = [];
     page.on('console', (msg) => {
@@ -127,14 +150,44 @@ test.describe('lightbox', () => {
         await expect.poll(() => page.evaluate(() => document.body.style.overflow)).toBe('hidden');
     });
 
-    test('resolves EXIF metadata instead of hanging on "Loading"', async ({ page }) => {
+    test('renders EXIF from the manifest, fetching nothing', async ({ page }) => {
+        test.skip(homePhotos.length < 2, 'needs two photos to page between');
+        // The panel used to be filled by exif-js parsing the header of item.original —
+        // the full-resolution file, up to 3.5MB, for a photo shown at 459KB, repeated on
+        // every next/prev. Both the CDN script and the original are now unreachable from
+        // this path, so assert on the requests rather than only on the rendered values.
+        const offenders = [];
+        page.on('request', (request) => {
+            const offender = forbiddenMetadataRequest(request.url());
+            if (offender) offenders.push(offender);
+        });
+
         await page.goto('/');
         await page.locator('.gallery-item-wrapper').first().click();
 
+        // `exif: null` is legitimate output for a source with no parseable header, and
+        // homePhotos[0] is positional — so guard the render half only. Skipping the
+        // whole test would take the request assertion with it, and that is the point
+        // of this one.
         const metadata = page.locator('#lightbox-metadata');
-        await expect(metadata.locator('.metadata-grid, .metadata-empty, .metadata-error'))
-            .toBeVisible({ timeout: 30_000 });
-        await expect(metadata).not.toContainText('Loading metadata');
+        if (homePhotos[0].exif) {
+            await expect(metadata.locator('.metadata-grid')).toBeVisible({ timeout: 30_000 });
+            await expect(metadata).toContainText('Camera');
+        }
+
+        // Proving a request did *not* happen needs something that did to sync against:
+        // the grid locator is already visible from photo #1, so it resolves on the first
+        // poll and offenders could be read before CDP delivered anything. CDP preserves
+        // order, so once the next photo's own image lands, a re-introduced fetch from
+        // the same task has landed too.
+        const next = homePhotos[1];
+        const nextImageLoaded = page.waitForResponse((response) =>
+            decodeURIComponent(response.url()).endsWith(next.versions.large.jpg));
+
+        await page.keyboard.press('ArrowRight');
+        await nextImageLoaded;
+
+        expect(offenders).toEqual([]);
     });
 
     test('arrow keys and nav buttons move between photos', async ({ page }) => {
@@ -159,25 +212,38 @@ test.describe('lightbox', () => {
         await expect(image).toHaveAttribute('src', firstSrc);
     });
 
-    test('rapid navigation never leaves stale metadata behind', async ({ page }) => {
-        test.skip(galleryData.length < 3, 'needs at least three photos');
+    test('rapid navigation leaves the panel describing the photo on screen', async ({ page }) => {
+        test.skip(homePhotos.length < 3, 'needs at least three photos');
 
+        // This used to assert the panel stopped changing, which guarded metadata
+        // arriving out of order through pendingImageRequestId. That path is gone —
+        // the read is synchronous against the manifest — so comparing the panel to
+        // its own earlier text is now true by construction and guards nothing.
+        // The property the deleted guard actually protected is that the panel
+        // describes the photo being shown, so assert that against the manifest.
         await page.goto('/');
         await page.locator('.gallery-item-wrapper').first().click();
 
-        // Fire faster than images/EXIF can resolve — exercises pendingImageRequestId.
-        for (let i = 0; i < 5; i += 1) {
+        const steps = 5;
+        for (let i = 0; i < steps; i += 1) {
             await page.keyboard.press('ArrowRight');
         }
 
-        const metadata = page.locator('#lightbox-metadata');
-        await expect(metadata.locator('.metadata-grid, .metadata-empty, .metadata-error'))
-            .toBeVisible({ timeout: 30_000 });
+        const expected = homePhotos[steps % homePhotos.length];
+        test.skip(!expected.exif, 'the landing photo has no EXIF to compare against');
 
-        // Once settled, a late in-flight response must not overwrite it.
-        const settled = await metadata.textContent();
-        await page.waitForTimeout(2000);
-        expect(await metadata.textContent()).toBe(settled);
+        await expect(page.locator('#lightbox-img'))
+            .toHaveAttribute('src', new RegExp(`${expected.versions.large.jpg.split('/').pop().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`));
+
+        // Restated rather than reusing ExifMetadataReader, so a formatter bug fails here.
+        const metadata = page.locator('#lightbox-metadata');
+        await expect(metadata.locator('.metadata-grid')).toBeVisible();
+        if (expected.exif.iso) {
+            await expect(metadataValue(metadata, 'ISO')).toHaveText(String(expected.exif.iso));
+        }
+        if (expected.exif.fNumber) {
+            await expect(metadataValue(metadata, 'Aperture')).toHaveText(`f/${expected.exif.fNumber.toFixed(1)}`);
+        }
     });
 
     test('a thumbnail can be reached and opened from the keyboard', async ({ page }) => {
@@ -423,6 +489,12 @@ for (const series of seriesData) {
         });
 
         test('the lightbox opens on the series photos', async ({ page }) => {
+            const fetched = [];
+            page.on('request', (request) => {
+                const offender = forbiddenMetadataRequest(request.url());
+                if (offender) fetched.push(offender);
+            });
+
             await page.goto(url);
             await page.locator('.project-item').first().click();
 
@@ -440,9 +512,22 @@ for (const series of seriesData) {
             await expect(page.locator('#lightbox-img'))
                 .toHaveAttribute('alt', series.photos[0].alt || series.photos[0].caption);
 
+            // Tightened to .metadata-grid on purpose: series pages are the one path that
+            // rebuilds each item (selectSeriesPhotos grafts span/caption/alt on), so they
+            // are exactly where `exif` could be dropped. Accepting .metadata-empty here
+            // would let that through — and the transfer win this was measured on is the
+            // series page, hence the request checks too.
+            // Guarded for the same reason as the home-page test: a headerless photo here
+            // is data, not a regression, and `fetched` must be asserted either way.
             const metadata = page.locator('#lightbox-metadata');
-            await expect(metadata.locator('.metadata-grid, .metadata-empty, .metadata-error'))
-                .toBeVisible({ timeout: 30_000 });
+            const entry = galleryData.find((item) => item.filename === series.photos[0].filename);
+            if (entry && entry.exif) {
+                await expect(metadata.locator('.metadata-grid')).toBeVisible({ timeout: 30_000 });
+                if (entry.exif.iso) {
+                    await expect(metadataValue(metadata, 'ISO')).toHaveText(String(entry.exif.iso));
+                }
+            }
+            expect(fetched).toEqual([]);
 
             await page.keyboard.press('Escape');
             await expect(lightbox).not.toHaveClass(/active/);
