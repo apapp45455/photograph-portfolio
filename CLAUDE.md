@@ -85,7 +85,7 @@ npm run build:gallery -- --force   # re-encode derivatives that already exist
 - `main.js` — home page: series cards, then the ungrouped grid
 - `project.js` — series pages: reads `data-series` / `data-asset-base` off `<body>`, so a new series page needs no new JS
 
-**Verification:** `.claude/skills/verify/SKILL.md` — serve with `python3 -m http.server`, drive with Playwright + system Chrome (`channel: "chrome"`). Known noise documented there (profile.jpg 404, Cloudflare CORS on localhost).
+**Verification:** `.claude/skills/verify/SKILL.md` — serve with `python3 -m http.server`, drive with Playwright + system Chrome (`channel: "chrome"`). Known noise documented there (Cloudflare CORS on localhost).
 
 ## CI
 
@@ -104,7 +104,7 @@ No CD job — GitHub Pages deploys from the branch on its own.
 
 Notes:
 - The e2e suite starts its own `python3 -m http.server` via `playwright.config.js` (`webServer`), no manual serve needed.
-- Expected console noise is filtered in `IGNORED_CONSOLE` in the spec (profile.jpg 404, Cloudflare beacon).
+- Expected console noise is filtered in `IGNORED_CONSOLE` in the spec (the Cloudflare beacon).
 - `generate-gallery.js` sorts filenames by UTF-16 code unit — not `localeCompare`, whose CJK collation depends on the ICU data Node ships with — so the manifest is byte-identical across machines and Node versions. CJK filenames are compared NFC-normalised (macOS gives NFD).
 - The a11y score sits just above the 0.9 gate: the muted palette (`--text-secondary` / `--accent-color` on the warm-white background) fails WCAG AA contrast on small text. Darkening those tokens is the fix if the budget ever trips.
 - Dependabot (`.github/dependabot.yml`) opens monthly npm + actions update PRs.

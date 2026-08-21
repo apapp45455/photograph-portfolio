@@ -545,16 +545,6 @@ main {
   margin: 1.1rem auto 0;
 }
 
-.about-image {
-  width: 180px;
-  height: 180px;
-  border-radius: 50%;
-  object-fit: cover;
-  margin-bottom: 2rem;
-  border: 1px solid var(--border-soft);
-  box-shadow: 0 8px 24px rgba(176, 141, 79, 0.12);
-}
-
 .about-content p {
   font-size: 1.05rem;
   font-weight: 300;

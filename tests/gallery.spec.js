@@ -10,7 +10,6 @@ const homePhotos = galleryData.filter((entry) => !entry.series);
  * See .claude/skills/verify/SKILL.md.
  */
 const IGNORED_CONSOLE = [
-    /profile\.jpg/,          // intentional 404, hidden by the onerror handler
     /cloudflareinsights/,    // beacon only allows the production origin
     /static\.cloudflare/
 ];
