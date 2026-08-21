@@ -75,8 +75,14 @@ class ImageProcessor {
         let tags;
         try {
             tags = await exifr.parse(filePath, ['Make', 'Model', 'FNumber', 'ExposureTime', 'ISO', 'FocalLength']);
-        } catch {
-            // A photo with no parseable header is normal, not a build failure.
+        } catch (error) {
+            // Not the headerless case — that resolves undefined and falls through below.
+            // This is a header that exists and will not parse, and it is otherwise silent
+            // all the way down: null is legitimate output so check-gallery accepts it, the
+            // failure is deterministic so check:generated reproduces it and diffs clean,
+            // and the panel says "No EXIF data found" exactly as it would for a photo that
+            // genuinely has none. The build log is the only place it can surface.
+            console.warn(`\n⚠️  ${path.basename(filePath)}: EXIF present but unreadable (${error.message}) — the lightbox will show "No EXIF data found"`);
             return null;
         }
         if (!tags) return null;

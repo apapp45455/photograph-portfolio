@@ -14,6 +14,14 @@ const IGNORED_CONSOLE = [
     /static\.cloudflare/
 ];
 
+/**
+ * The value cell of one metadata row. Scoped deliberately: asserting on the whole
+ * panel lets an ISO of 100 be satisfied by a 1/1000s shutter, and 200 by a 200mm lens.
+ */
+function metadataValue(metadata, label) {
+    return metadata.locator(`.metadata-item:has(.label:text-is("${label}")) .value`);
+}
+
 function collectConsoleErrors(page) {
     const errors = [];
     page.on('console', (msg) => {
@@ -210,8 +218,12 @@ test.describe('lightbox', () => {
         // Restated rather than reusing ExifMetadataReader, so a formatter bug fails here.
         const metadata = page.locator('#lightbox-metadata');
         await expect(metadata.locator('.metadata-grid')).toBeVisible();
-        if (expected.exif.iso) await expect(metadata).toContainText(String(expected.exif.iso));
-        if (expected.exif.fNumber) await expect(metadata).toContainText(`f/${expected.exif.fNumber.toFixed(1)}`);
+        if (expected.exif.iso) {
+            await expect(metadataValue(metadata, 'ISO')).toHaveText(String(expected.exif.iso));
+        }
+        if (expected.exif.fNumber) {
+            await expect(metadataValue(metadata, 'Aperture')).toHaveText(`f/${expected.exif.fNumber.toFixed(1)}`);
+        }
     });
 
     test('a thumbnail can be reached and opened from the keyboard', async ({ page }) => {
@@ -457,6 +469,13 @@ for (const series of seriesData) {
         });
 
         test('the lightbox opens on the series photos', async ({ page }) => {
+            const fetched = [];
+            page.on('request', (request) => {
+                const target = decodeURIComponent(request.url());
+                if (/jsdelivr|exif-js/.test(target)) fetched.push(`CDN: ${target}`);
+                if (/\/images\/[^/]+\.jpe?g$/i.test(target)) fetched.push(`original: ${target}`);
+            });
+
             await page.goto(url);
             await page.locator('.project-item').first().click();
 
@@ -474,9 +493,19 @@ for (const series of seriesData) {
             await expect(page.locator('#lightbox-img'))
                 .toHaveAttribute('alt', series.photos[0].alt || series.photos[0].caption);
 
+            // Tightened to .metadata-grid on purpose: series pages are the one path that
+            // rebuilds each item (selectSeriesPhotos grafts span/caption/alt on), so they
+            // are exactly where `exif` could be dropped. Accepting .metadata-empty here
+            // would let that through — and the transfer win this was measured on is the
+            // series page, hence the request checks too.
             const metadata = page.locator('#lightbox-metadata');
-            await expect(metadata.locator('.metadata-grid, .metadata-empty, .metadata-error'))
-                .toBeVisible({ timeout: 30_000 });
+            await expect(metadata.locator('.metadata-grid')).toBeVisible({ timeout: 30_000 });
+
+            const entry = galleryData.find((item) => item.filename === series.photos[0].filename);
+            if (entry && entry.exif && entry.exif.iso) {
+                await expect(metadataValue(metadata, 'ISO')).toHaveText(String(entry.exif.iso));
+            }
+            expect(fetched).toEqual([]);
 
             await page.keyboard.press('Escape');
             await expect(lightbox).not.toHaveClass(/active/);
