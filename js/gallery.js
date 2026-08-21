@@ -17,10 +17,15 @@ export class GalleryDataSource {
 }
 
 export class GalleryItemRenderer {
-  constructor({ breakpoints, classes, sizes }) {
+  /**
+   * @param {?string[]} tiers - which generated sizes to offer as candidates. Defaults
+   *   to all of them; the home grid narrows it, see main.js.
+   */
+  constructor({ breakpoints, classes, sizes, tiers = null }) {
     this.breakpoints = breakpoints;
     this.classes = classes;
     this.sizes = sizes;
+    this.tiers = tiers;
   }
 
   render(item, index) {
@@ -70,7 +75,7 @@ export class GalleryItemRenderer {
   createSource(type, item, format) {
     const source = document.createElement("source");
     source.type = type;
-    source.srcset = getVersionSrcset(item.versions, format);
+    source.srcset = getVersionSrcset(item.versions, format, this.tiers);
     source.sizes = this.sizes ? this.sizes(item) : this.defaultSizes();
     return source;
   }
