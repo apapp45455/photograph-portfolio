@@ -319,7 +319,13 @@ async function checkHomePreload() {
     if (!fs.existsSync(CONFIG.HOME_PAGE) || !fs.existsSync(CONFIG.SERIES_DATA)) return;
 
     const html = fs.readFileSync(CONFIG.HOME_PAGE, 'utf8');
-    const tag = /<link\b[^>]*\brel="preload"[^>]*\bas="image"[^>]*>/s.exec(html);
+
+    // Selected on both attributes rather than by one regex that pins their order:
+    // attribute order is not semantic, this <head> holds a second rel="preload" (the
+    // font stylesheet), and a reordered tag reported as a *missing* tag would send the
+    // next person hunting for something that is right there.
+    const tag = (html.match(/<link\b[^>]*>/gs) || [])
+        .find((link) => /\brel="preload"/.test(link) && /\bas="image"/.test(link));
 
     let series;
     try {
@@ -337,6 +343,13 @@ async function checkHomePreload() {
         return;
     }
 
+    // imagesrcset is asserted against the WebP candidates below, so without this a
+    // browser that cannot decode WebP preloads a file it can never use — and the
+    // guard would still be green.
+    if (!/\btype="image\/webp"/.test(tag)) {
+        fail(`${CONFIG.HOME_PAGE}: the cover preload has no type="image/webp", so a browser without WebP support would fetch a candidate it cannot decode`);
+    }
+
     const utils = await loadBrowserModule('js/utils.js');
     const { CONFIG: FRONTEND } = await loadBrowserModule('js/config.js');
 
@@ -346,7 +359,7 @@ async function checkHomePreload() {
     };
 
     for (const [attribute, want] of Object.entries(expected)) {
-        const found = new RegExp(`\\b${attribute}="([^"]*)"`).exec(tag[0]);
+        const found = new RegExp(`\\b${attribute}="([^"]*)"`).exec(tag);
         if (!found) {
             fail(`${CONFIG.HOME_PAGE}: the cover preload has no ${attribute}`);
             continue;

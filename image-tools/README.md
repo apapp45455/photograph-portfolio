@@ -109,5 +109,8 @@ node image-tools/generate-gallery.js
 - `DIRECTORIES.OPTIMIZED`: 優化圖片輸出資料夾 (預設 `images/optimized`)
 - `DIRECTORIES.DATA_OUTPUT`: JSON 輸出路徑 (預設 `js/gallery-data.json`)
 - `IMAGE_SIZES`: 各尺寸的最大寬度
-- `QUALITY`: 壓縮品質 (預設 80)
+- `JPEG_QUALITY`: JPEG 壓縮品質 (預設 80)
+- `WEBP_QUALITY`: WebP 壓縮品質 (預設 75) — WebP 與 JPEG 的品質數字不是同一個刻度，
+  兩者共用 80 時 WebP 反而會比 mozjpeg 的輸出更大
+- `WEBP_EFFORT`: WebP 編碼運算量 (預設 6，0–6，越高越慢也越小)
 - `CONCURRENCY`: 並行處理數量 (預設 4)
