@@ -105,7 +105,7 @@ No CD job — GitHub Pages deploys from the branch on its own.
 Two things about it that cost time to work out:
 
 - **A change to this workflow cannot be tested on a PR.** The action refuses to run when the file differs from the copy on the default branch (`Skipping action due to workflow validation`), so the job goes green in ~1.5s without reviewing anything. A green check on a PR that edits this file means nothing; the change only takes effect once merged.
-- **A denied tool call is fatal**, not a graceful degradation: the run ends `is_error: true` having posted nothing. The `--allowedTools` list therefore has to cover everything the reviewer reaches for. The CI log reports `permission_denials_count` but never the tool names, so the job uploads `claude-execution-output.json` as an artifact on failure — that file is the only way to see which calls were refused.
+- **It fails intermittently, and the CI log cannot tell you why.** PR #14 ended `is_error: true` having posted nothing, then a re-run of the same commit with the same config succeeded. Both runs had permission denials (5 and 3), so denials are not the trigger — they are not fatal. The log reports `permission_denials_count` and nothing else about what the run did, so the job now uploads `claude-execution-output.json` as an artifact on failure. Read that before theorising; a red `Review the diff` is as likely to be a flake as a finding.
 
 Notes:
 - The e2e suite starts its own `python3 -m http.server` via `playwright.config.js` (`webServer`), no manual serve needed.
