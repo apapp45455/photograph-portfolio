@@ -78,6 +78,13 @@ test.describe('gallery grid', () => {
     test('home tiles never offer the largest tier', async ({ page }) => {
         await page.goto('/');
 
+        // `load` does not wait on the fetch that builds the grid — a module script only
+        // has to execute — so the first read has to be an auto-retrying matcher. A bare
+        // count() can legitimately see 0 and fail, which is the worst shape for a guard
+        // whose job is to fail only when someone drops `tiers:` from main.js.
+        await expect(page.locator('#gallery-container .gallery-item-wrapper'))
+            .toHaveCount(homePhotos.length);
+
         const sources = page.locator('.gallery-item-wrapper source');
         const count = await sources.count();
         expect(count).toBeGreaterThan(0);

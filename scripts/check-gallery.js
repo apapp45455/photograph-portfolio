@@ -407,7 +407,7 @@ async function checkGridTiers(data) {
 
     for (const tier of tiers) {
         if (!available.has(tier)) {
-            fail(`js/config.js: CONFIG.GRID_TIERS names "${tier}", which ${CONFIG.DATA} does not have (it has ${[...available].join(', ')}) — the home grid would fall back to the thumb at full width`);
+            fail(`js/config.js: CONFIG.GRID_TIERS names "${tier}", which ${reference.filename} does not have in ${CONFIG.DATA} (it has ${[...available].join(', ')}) — the home grid would fall back to the thumb at full width`);
         }
     }
 
