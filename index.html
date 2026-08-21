@@ -125,7 +125,11 @@
       <button type="button" class="nav-btn next-btn" id="next-btn" aria-label="Next photo">&#10095;</button>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/exif-js"></script>
+    <!-- defer: without it the parser stops here for a DNS lookup, TLS handshake and
+         download to jsdelivr, and exif-js is not needed until a photo is opened.
+         Deferred classic scripts and modules both run after parsing, in document
+         order, so window.EXIF is still defined before the entry point below. -->
+    <script defer src="https://cdn.jsdelivr.net/npm/exif-js"></script>
     <script type="module" src="js/main.js"></script>
   </body>
 </html>
