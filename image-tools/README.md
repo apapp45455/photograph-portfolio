@@ -114,3 +114,9 @@ node image-tools/generate-gallery.js
   兩者共用 80 時 WebP 反而會比 mozjpeg 的輸出更大
 - `WEBP_EFFORT`: WebP 編碼運算量 (預設 6，0–6，越高越慢也越小)
 - `CONCURRENCY`: 並行處理數量 (預設 4)
+
+### EXIF
+產生 manifest 時會用 `exifr` 讀出每張照片的 Make / Model / FNumber / ExposureTime /
+ISO / FocalLength，寫進 `js/gallery-data.json` 的 `exif` 欄位（無法解析時為 `null`）。
+燈箱直接讀這個欄位，不再為了讀 EXIF 而下載原圖 —— 衍生檔的 EXIF 已被 sharp 剝除，
+所以這件事**只能**在建置期做。

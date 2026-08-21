@@ -6,6 +6,14 @@
     "width": 5712,
     "height": 4284,
     "aspectRatio": 1.3333333333333333,
+    "exif": {
+      "make": "Apple",
+      "model": "iPhone 17 Pro",
+      "fNumber": 1.78,
+      "exposureTime": 0.001152073732718894,
+      "iso": 80,
+      "focalLength": 6.76
+    },
     "versions": {
       "thumb": {
         "jpg": "images/optimized/Canon R50特寫-thumb.jpg",
@@ -31,6 +39,14 @@
     "width": 6000,
     "height": 4000,
     "aspectRatio": 1.5,
+    "exif": {
+      "make": "Canon",
+      "model": "Canon EOS R50",
+      "fNumber": 7.1,
+      "exposureTime": 0.005,
+      "iso": 100,
+      "focalLength": 18
+    },
     "versions": {
       "thumb": {
         "jpg": "images/optimized/中原大學_室設-thumb.jpg",
@@ -56,6 +72,14 @@
     "width": 4000,
     "height": 6000,
     "aspectRatio": 0.6666666666666666,
+    "exif": {
+      "make": "Canon",
+      "model": "Canon EOS R50",
+      "fNumber": 8,
+      "exposureTime": 0.004,
+      "iso": 100,
+      "focalLength": 45
+    },
     "versions": {
       "thumb": {
         "jpg": "images/optimized/中原大學_莊敬樓-thumb.jpg",
@@ -81,6 +105,14 @@
     "width": 6000,
     "height": 4000,
     "aspectRatio": 1.5,
+    "exif": {
+      "make": "Canon",
+      "model": "Canon EOS R50",
+      "fNumber": 5,
+      "exposureTime": 0.005,
+      "iso": 1600,
+      "focalLength": 55
+    },
     "versions": {
       "thumb": {
         "jpg": "images/optimized/中原大學_黑冠麻鷺-thumb.jpg",
@@ -106,6 +138,14 @@
     "width": 4284,
     "height": 5712,
     "aspectRatio": 0.75,
+    "exif": {
+      "make": "Apple",
+      "model": "iPhone 17 Pro",
+      "fNumber": 1.78,
+      "exposureTime": 0.00009700261907071492,
+      "iso": 80,
+      "focalLength": 6.76
+    },
     "versions": {
       "thumb": {
         "jpg": "images/optimized/信義_101-thumb.jpg",
@@ -131,6 +171,14 @@
     "width": 5712,
     "height": 4284,
     "aspectRatio": 1.3333333333333333,
+    "exif": {
+      "make": "Apple",
+      "model": "iPhone 17 Pro",
+      "fNumber": 1.78,
+      "exposureTime": 0.0007739938080495357,
+      "iso": 100,
+      "focalLength": 6.76
+    },
     "versions": {
       "thumb": {
         "jpg": "images/optimized/信義_新光三越-thumb.jpg",
@@ -156,6 +204,14 @@
     "width": 3024,
     "height": 4032,
     "aspectRatio": 0.75,
+    "exif": {
+      "make": "Apple",
+      "model": "iPhone 17 Pro",
+      "fNumber": 2.8,
+      "exposureTime": 0.002583979328165375,
+      "iso": 40,
+      "focalLength": 16.89
+    },
     "versions": {
       "thumb": {
         "jpg": "images/optimized/內壢_火車站-thumb.jpg",
@@ -181,6 +237,14 @@
     "width": 5328,
     "height": 4000,
     "aspectRatio": 1.332,
+    "exif": {
+      "make": "Canon",
+      "model": "Canon EOS R50",
+      "fNumber": 5,
+      "exposureTime": 0.0125,
+      "iso": 6400,
+      "focalLength": 27
+    },
     "versions": {
       "thumb": {
         "jpg": "images/optimized/內壢火車站_天橋-thumb.jpg",
@@ -206,6 +270,14 @@
     "width": 6000,
     "height": 4000,
     "aspectRatio": 1.5,
+    "exif": {
+      "make": "Canon",
+      "model": "Canon EOS R50",
+      "fNumber": 10,
+      "exposureTime": 0.003125,
+      "iso": 100,
+      "focalLength": 18
+    },
     "versions": {
       "thumb": {
         "jpg": "images/optimized/四四南村_仰角-thumb.jpg",
@@ -231,6 +303,14 @@
     "width": 6000,
     "height": 4000,
     "aspectRatio": 1.5,
+    "exif": {
+      "make": "Canon",
+      "model": "Canon EOS R50",
+      "fNumber": 10,
+      "exposureTime": 0.0025,
+      "iso": 100,
+      "focalLength": 18
+    },
     "versions": {
       "thumb": {
         "jpg": "images/optimized/四四南村_店家-thumb.jpg",
@@ -256,6 +336,14 @@
     "width": 3265,
     "height": 4898,
     "aspectRatio": 0.666598611678236,
+    "exif": {
+      "make": "Canon",
+      "model": "Canon EOS R50",
+      "fNumber": 9,
+      "exposureTime": 0.00025,
+      "iso": 1600,
+      "focalLength": 55
+    },
     "versions": {
       "thumb": {
         "jpg": "images/optimized/新屋_永安漁港-thumb.jpg",
@@ -281,6 +369,14 @@
     "width": 5328,
     "height": 4000,
     "aspectRatio": 1.332,
+    "exif": {
+      "make": "Canon",
+      "model": "Canon EOS R50",
+      "fNumber": 2.8,
+      "exposureTime": 0.00025,
+      "iso": 200,
+      "focalLength": 16
+    },
     "versions": {
       "thumb": {
         "jpg": "images/optimized/日本_會津若松城-thumb.jpg",
@@ -306,6 +402,14 @@
     "width": 4000,
     "height": 5328,
     "aspectRatio": 0.7507507507507507,
+    "exif": {
+      "make": "Canon",
+      "model": "Canon EOS R50",
+      "fNumber": 6.3,
+      "exposureTime": 0.00125,
+      "iso": 200,
+      "focalLength": 103
+    },
     "versions": {
       "thumb": {
         "jpg": "images/optimized/日本_會津若松城_鳥居-thumb.jpg",
@@ -331,6 +435,14 @@
     "width": 5328,
     "height": 4000,
     "aspectRatio": 1.332,
+    "exif": {
+      "make": "Canon",
+      "model": "Canon EOS R50",
+      "fNumber": 2.8,
+      "exposureTime": 0.00025,
+      "iso": 200,
+      "focalLength": 16
+    },
     "versions": {
       "thumb": {
         "jpg": "images/optimized/日本_花見山公園-thumb.jpg",
@@ -356,6 +468,14 @@
     "width": 5328,
     "height": 4000,
     "aspectRatio": 1.332,
+    "exif": {
+      "make": "Canon",
+      "model": "Canon EOS R50",
+      "fNumber": 7.1,
+      "exposureTime": 0.0008,
+      "iso": 3200,
+      "focalLength": 210
+    },
     "versions": {
       "thumb": {
         "jpg": "images/optimized/日本_霞城觀景台-thumb.jpg",
@@ -381,6 +501,14 @@
     "width": 5328,
     "height": 4000,
     "aspectRatio": 1.332,
+    "exif": {
+      "make": "Canon",
+      "model": "Canon EOS R50",
+      "fNumber": 6.3,
+      "exposureTime": 0.0005,
+      "iso": 3200,
+      "focalLength": 100
+    },
     "versions": {
       "thumb": {
         "jpg": "images/optimized/日本_霞城觀景台2-thumb.jpg",
@@ -406,6 +534,14 @@
     "width": 4160,
     "height": 3120,
     "aspectRatio": 1.3333333333333333,
+    "exif": {
+      "make": "JK Imaging, Ltd.",
+      "model": "KODAK PIXPRO C1",
+      "fNumber": 2,
+      "exposureTime": 0.030303030303030304,
+      "iso": 506,
+      "focalLength": 3
+    },
     "versions": {
       "thumb": {
         "jpg": "images/optimized/桃園_麵屋虎千代-thumb.jpg",
@@ -431,6 +567,14 @@
     "width": 4160,
     "height": 3120,
     "aspectRatio": 1.3333333333333333,
+    "exif": {
+      "make": "JK Imaging, Ltd.",
+      "model": "KODAK PIXPRO C1",
+      "fNumber": 2,
+      "exposureTime": 0.0011001100110011,
+      "iso": 100,
+      "focalLength": 3
+    },
     "versions": {
       "thumb": {
         "jpg": "images/optimized/浮州-thumb.jpg",

@@ -127,14 +127,29 @@ test.describe('lightbox', () => {
         await expect.poll(() => page.evaluate(() => document.body.style.overflow)).toBe('hidden');
     });
 
-    test('resolves EXIF metadata instead of hanging on "Loading"', async ({ page }) => {
+    test('renders EXIF from the manifest, fetching nothing', async ({ page }) => {
+        // The panel used to be filled by exif-js parsing the header of item.original —
+        // the full-resolution file, up to 3.5MB, for a photo shown at 459KB, repeated on
+        // every next/prev. Both the CDN script and the original are now unreachable from
+        // this path, so assert on the requests rather than only on the rendered values.
+        const offenders = [];
+        page.on('request', (request) => {
+            const url = decodeURIComponent(request.url());
+            if (/jsdelivr|exif-js/.test(url)) offenders.push(`CDN: ${url}`);
+            if (/\/images\/[^/]+\.jpe?g$/i.test(url)) offenders.push(`original: ${url}`);
+        });
+
         await page.goto('/');
         await page.locator('.gallery-item-wrapper').first().click();
 
         const metadata = page.locator('#lightbox-metadata');
-        await expect(metadata.locator('.metadata-grid, .metadata-empty, .metadata-error'))
-            .toBeVisible({ timeout: 30_000 });
-        await expect(metadata).not.toContainText('Loading metadata');
+        await expect(metadata.locator('.metadata-grid')).toBeVisible({ timeout: 30_000 });
+        await expect(metadata).toContainText('Camera');
+
+        await page.keyboard.press('ArrowRight');
+        await expect(metadata.locator('.metadata-grid')).toBeVisible();
+
+        expect(offenders).toEqual([]);
     });
 
     test('arrow keys and nav buttons move between photos', async ({ page }) => {

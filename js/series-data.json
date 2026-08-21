@@ -14,6 +14,14 @@
       "width": 5328,
       "height": 4000,
       "aspectRatio": 1.332,
+      "exif": {
+        "make": "Canon",
+        "model": "Canon EOS R50",
+        "fNumber": 2.8,
+        "exposureTime": 0.00025,
+        "iso": 200,
+        "focalLength": 16
+      },
       "versions": {
         "thumb": {
           "jpg": "images/optimized/日本_會津若松城-thumb.jpg",

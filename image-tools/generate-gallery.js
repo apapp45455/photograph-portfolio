@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const sharp = require('sharp');
+const exifr = require('exifr');
 
 /**
  * CONFIGURATION
@@ -49,16 +50,48 @@ class ImageProcessor {
         // is described as landscape and the grid reserves the wrong box for it.
         const { width, height } = metadata.autoOrient || metadata;
 
-        // Sharp exposes raw EXIF as a buffer (metadata.exif). We only store dimensions
-        // for now; parsing it here (e.g. with 'exifr') would let the lightbox skip the
-        // client-side exif-js read.
         return {
             width,
             height,
             aspectRatio: width / height,
             format: metadata.format,
-            // You can extend this with more EXIF data using an EXIF parser library here
+            exif: await this.getExif(filePath),
         };
+    }
+
+    /**
+     * The five values the lightbox shows, parsed once here instead of by the browser.
+     *
+     * The client used to fetch `images/<name>.jpg` — the full-resolution original, up
+     * to 3.5MB — purely to read this header, while displaying the 459KB derivative. It
+     * cannot read them from a derivative instead: generate-gallery.js strips EXIF.
+     *
+     * Raw values, not display strings: formatting stays in ExifMetadataReader, which is
+     * where it was and where it belongs. fNumber and focalLength are rounded to 2dp,
+     * which is lossless for a display that shows 1dp and 0dp; exposureTime keeps full
+     * precision because the formatter inverts it.
+     */
+    static async getExif(filePath) {
+        let tags;
+        try {
+            tags = await exifr.parse(filePath, ['Make', 'Model', 'FNumber', 'ExposureTime', 'ISO', 'FocalLength']);
+        } catch {
+            // A photo with no parseable header is normal, not a build failure.
+            return null;
+        }
+        if (!tags) return null;
+
+        const round = (value) => (typeof value === 'number' ? Math.round(value * 100) / 100 : null);
+        const exif = {
+            make: tags.Make || null,
+            model: tags.Model || null,
+            fNumber: round(tags.FNumber),
+            exposureTime: typeof tags.ExposureTime === 'number' ? tags.ExposureTime : null,
+            iso: typeof tags.ISO === 'number' ? tags.ISO : null,
+            focalLength: round(tags.FocalLength),
+        };
+
+        return Object.values(exif).some((value) => value !== null) ? exif : null;
     }
 
     static async process(filePath, fileName) {
@@ -70,6 +103,7 @@ class ImageProcessor {
             width: metadata.width,
             height: metadata.height,
             aspectRatio: metadata.aspectRatio,
+            exif: metadata.exif,
             versions: {}
         };
 

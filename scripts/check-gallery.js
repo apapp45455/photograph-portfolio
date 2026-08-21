@@ -463,10 +463,22 @@ async function main() {
     data.forEach((entry, index) => {
         const label = `entry #${index} (${entry && entry.filename ? entry.filename : 'unnamed'})`;
 
-        for (const field of ['filename', 'original', 'width', 'height', 'aspectRatio', 'versions']) {
+        for (const field of ['filename', 'original', 'width', 'height', 'aspectRatio', 'exif', 'versions']) {
             if (entry[field] === undefined) fail(`${label}: missing field "${field}"`);
         }
         if (!entry.filename || !entry.versions) return;
+
+        // null is legitimate (a source with no parseable header), but a *shape* the
+        // formatters do not expect renders as "--" across the whole panel with nothing
+        // saying why — the manifest is the only place this can now be caught.
+        if (entry.exif !== null && entry.exif !== undefined) {
+            const EXIF_FIELDS = ['make', 'model', 'fNumber', 'exposureTime', 'iso', 'focalLength'];
+            const unknown = Object.keys(entry.exif).filter((key) => !EXIF_FIELDS.includes(key));
+            if (unknown.length) fail(`${label}: exif has unexpected field(s) ${unknown.join(', ')} — run \`npm run build:gallery\``);
+            for (const key of EXIF_FIELDS) {
+                if (!(key in entry.exif)) fail(`${label}: exif is missing "${key}" — run \`npm run build:gallery\``);
+            }
+        }
 
         const filename = norm(entry.filename);
         if (seenFilenames.has(filename)) fail(`${label}: duplicate filename`);
