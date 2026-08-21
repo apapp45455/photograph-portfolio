@@ -397,11 +397,24 @@ async function checkGridTiers(data) {
         return;
     }
 
-    const available = new Set(Object.keys(data[0].versions || {}));
+    const versions = Object.entries(data[0].versions || {});
+    const available = new Set(versions.map(([tier]) => tier));
+
     for (const tier of tiers) {
         if (!available.has(tier)) {
             fail(`js/config.js: CONFIG.GRID_TIERS names "${tier}", which ${CONFIG.DATA} does not have (it has ${[...available].join(', ')}) — the home grid would fall back to the thumb at full width`);
         }
+    }
+
+    // The other direction, and the likelier edit: the list growing back. "The grid
+    // looks soft on my 5K monitor, put large back" reinstates the regression this cap
+    // exists for — a 3x phone computes 390 * 3 = 1170, clears medium, and takes the
+    // 1920px file into a 390px box. Checking names-exist alone would stay green.
+    // Derived from the manifest rather than hard-coding "large", so renaming the tiers
+    // does not quietly disarm it.
+    const widest = versions.sort((a, b) => b[1].width - a[1].width)[0];
+    if (widest && tiers.includes(widest[0])) {
+        fail(`js/config.js: CONFIG.GRID_TIERS includes "${widest[0]}" (${widest[1].width}px), the widest tier there is — a 3x phone at 100vw would take it for a tile a third that size. That tier belongs to the lightbox and the series pages.`);
     }
 }
 
