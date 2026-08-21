@@ -2,7 +2,7 @@ import { createElement } from "./utils.js";
 
 const EXIF_CDN = "https://cdn.jsdelivr.net/npm/exif-js";
 
-/** One fetch per page, shared by every read; null once the CDN has failed. */
+/** In-flight or successful fetch, shared by every read; cleared again on failure. */
 let exifApiRequest = null;
 
 /**
@@ -19,9 +19,17 @@ function loadExifApi() {
     const script = document.createElement("script");
     script.src = EXIF_CDN;
     script.onload = () => resolve(window.EXIF || null);
-    // A blocked or unreachable CDN has to settle as "no metadata", not leave the
-    // lightbox showing "Loading metadata" forever.
-    script.onerror = () => resolve(null);
+    script.onerror = () => {
+      // Two separate things. Resolving null settles the panel on "no metadata"
+      // rather than leaving it on "Loading metadata" forever. Clearing the cache
+      // lets the *next* open try again: the fetch now starts when a photo is
+      // opened, which on a phone can land mid-handover, and without this one dead
+      // spot would disable metadata for the rest of the visit even after the
+      // network came back. A genuinely blocked CDN just re-fails, cheaply.
+      // Safe here — the assignment below has completed by the time this fires.
+      exifApiRequest = null;
+      resolve(null);
+    };
     document.head.appendChild(script);
   });
 
