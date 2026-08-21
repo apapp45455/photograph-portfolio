@@ -294,6 +294,67 @@ function checkSeries(data) {
     console.log(`Checked ${series.length} series covering ${data.filter((e) => e.series).length} photos.`);
 }
 
+/**
+ * `js/` is browser ESM, but package.json declares "type": "commonjs", which switches
+ * off Node's module-syntax detection — a plain `import()` of these files resolves them
+ * as CJS and throws. Loading the source through a data: URL sidesteps the extension
+ * lookup entirely. Safe because both files are dependency-free and touch no DOM at
+ * the top level; anything with imports of its own would need a real resolver.
+ */
+async function loadBrowserModule(file) {
+    const source = fs.readFileSync(file, 'utf8');
+    return import(`data:text/javascript;base64,${Buffer.from(source).toString('base64')}`);
+}
+
+/**
+ * index.html preloads the first series cover, because that <picture> is built by JS
+ * after two round trips and the preload scanner would otherwise never see it.
+ *
+ * The filename is therefore hard-coded in a hand-written file: reorder the series or
+ * swap a cover and the tag silently points at a photo that is no longer first. A
+ * mismatched srcset/sizes is *worse* than no preload — the browser downloads the
+ * preloaded candidate and then the one <picture> actually selects.
+ */
+async function checkHomePreload() {
+    if (!fs.existsSync(CONFIG.HOME_PAGE) || !fs.existsSync(CONFIG.SERIES_DATA)) return;
+
+    const html = fs.readFileSync(CONFIG.HOME_PAGE, 'utf8');
+    const tag = /<link\b[^>]*\brel="preload"[^>]*\bas="image"[^>]*>/s.exec(html);
+
+    let series;
+    try {
+        series = JSON.parse(fs.readFileSync(CONFIG.SERIES_DATA, 'utf8'));
+    } catch {
+        return; // checkSeries already reported the parse failure
+    }
+    if (!Array.isArray(series) || series.length === 0 || !series[0] || !series[0].cover) {
+        if (tag) fail(`${CONFIG.HOME_PAGE}: preloads a cover image, but ${CONFIG.SERIES_DATA} has no first cover`);
+        return;
+    }
+
+    if (!tag) {
+        fail(`${CONFIG.HOME_PAGE}: no <link rel="preload" as="image"> for the first series cover — its request waits on two round trips of JS`);
+        return;
+    }
+
+    const utils = await loadBrowserModule('js/utils.js');
+    const { CONFIG: FRONTEND } = await loadBrowserModule('js/config.js');
+
+    const expected = {
+        imagesrcset: utils.getVersionSrcset(series[0].cover.versions, 'webp'),
+        imagesizes: utils.seriesCoverSizes(FRONTEND.BREAKPOINTS),
+    };
+
+    for (const [attribute, want] of Object.entries(expected)) {
+        const found = new RegExp(`\\b${attribute}="([^"]*)"`).exec(tag[0]);
+        if (!found) {
+            fail(`${CONFIG.HOME_PAGE}: the cover preload has no ${attribute}`);
+        } else if (norm(found[1]) !== norm(want)) {
+            fail(`${CONFIG.HOME_PAGE}: preload ${attribute} is\n  ${found[1]}\nbut SeriesCardRenderer.createCover builds\n  ${want}`);
+        }
+    }
+}
+
 async function main() {
     if (!fs.existsSync(CONFIG.DATA)) {
         fail(`Missing manifest: ${CONFIG.DATA} (run \`npm run build:gallery\`)`);
@@ -406,6 +467,7 @@ async function main() {
     }
 
     checkSeries(data);
+    await checkHomePreload();
 
     if (DEEP) {
         await verifyPixels(data);

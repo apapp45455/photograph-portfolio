@@ -5,6 +5,19 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>大衛的攝影網站</title>
     <meta name="description" content="大衛的攝影作品集 — 街景、建築與旅途中的光。David Wang's photography portfolio." />
+    <!-- The largest above-the-fold element is the first series cover, but that <picture>
+         is built by JS after two round trips, so the preload scanner never sees it and
+         the request went out at 7.3s. imagesrcset/imagesizes must match what
+         SeriesCardRenderer.createCover computes, or the browser fetches a second file;
+         scripts/check-gallery.js is what keeps the two in step. -->
+    <link
+      rel="preload"
+      as="image"
+      type="image/webp"
+      imagesrcset="images/optimized/日本_會津若松城-thumb.webp 400w, images/optimized/日本_會津若松城-medium.webp 1080w, images/optimized/日本_會津若松城-large.webp 1920w"
+      imagesizes="(max-width: 1024px) calc(100vw - 40px), (max-width: 1440px) 55vw, 782px"
+      fetchpriority="high"
+    />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
