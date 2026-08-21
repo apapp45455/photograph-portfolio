@@ -100,7 +100,12 @@ npm run build:gallery -- --force   # re-encode derivatives that already exist
 
 No CD job — GitHub Pages deploys from the branch on its own.
 
-`.github/workflows/claude-code-review.yml` runs `anthropics/claude-code-action@v1` on every non-draft PR (`opened` / `synchronize`) and posts inline + top-level review comments. Needs the `ANTHROPIC_API_KEY` repo secret; without it the job fails and the rest of CI is unaffected. It is advisory — it is not part of the `CI passed` gate.
+`.github/workflows/claude-code-review.yml` runs `anthropics/claude-code-action@v1` on every non-draft PR (`opened` / `synchronize`) and posts inline + top-level review comments. Needs the `CLAUDE_CODE_OAUTH_TOKEN` repo secret; without it the job fails and the rest of CI is unaffected. It is advisory — it is not part of the `CI passed` gate.
+
+Two things about it that cost time to work out:
+
+- **A change to this workflow cannot be tested on a PR.** The action refuses to run when the file differs from the copy on the default branch (`Skipping action due to workflow validation`), so the job goes green in ~1.5s without reviewing anything. A green check on a PR that edits this file means nothing; the change only takes effect once merged.
+- **It fails intermittently, and the CI log cannot tell you why.** PR #14 ended `is_error: true` having posted nothing, then a re-run of the same commit with the same config succeeded. Both runs had permission denials (5 and 3), so denials are not the trigger — they are not fatal. The log reports `permission_denials_count` and nothing else about what the run did, so the job now uploads `claude-execution-output.json` as an artifact on failure. Read that before theorising; a red `Review the diff` is as likely to be a flake as a finding.
 
 Notes:
 - The e2e suite starts its own `python3 -m http.server` via `playwright.config.js` (`webServer`), no manual serve needed.

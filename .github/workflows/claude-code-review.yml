@@ -73,3 +73,18 @@ jobs:
             --model claude-opus-5
             --max-turns 60
             --allowedTools "Read,Grep,Glob,mcp__github_inline_comment__create_inline_comment,mcp__github_comment__update_claude_comment,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*)"
+
+      # A failure here is not diagnosable from the CI log: it prints
+      # permission_denials_count but never the tool names, and nothing else about what
+      # the run actually did. PR #14 failed once with is_error:true and succeeded on a
+      # re-run of the same commit with the same config — 5 denials vs 3, both non-fatal
+      # — and there was no way to tell what differed. Keep the execution log so the
+      # next one can be answered instead of guessed at.
+      - name: Upload execution log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: claude-review-execution-log
+          path: ${{ runner.temp }}/claude-execution-output.json
+          if-no-files-found: warn
+          retention-days: 7
