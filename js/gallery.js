@@ -86,6 +86,11 @@ export class GalleryItemRenderer {
     img.alt = formatPhotoTitle(item.filename);
     img.classList.add(this.classes.GALLERY_ITEM);
     img.loading = "lazy";
+    // Below the fold, and on a tall phone Chrome's lazy threshold reaches several of
+    // these at once. At default priority they split the pipe with the LCP element,
+    // which is still in flight — measurably so once the render-blocking font sheet
+    // stopped holding them back. Set before src, like fetchpriority always must be.
+    img.setAttribute("fetchpriority", "low");
     img.width = item.width;
     img.height = item.height;
     img.onload = () => img.classList.add(this.classes.LOADED);
