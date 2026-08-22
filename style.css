@@ -1,3 +1,27 @@
+/* Cormorant Garamond, self-hosted and cut down to the characters this site draws.
+
+   It used to come from fonts.googleapis.com, and that cost far more than the two
+   requests suggest: the 37KB latin face is fetched at High priority, which outranks
+   images, and it lands in exactly the window where the 140KB LCP cover is downloading
+   on a slow link. Measured on the deployed site under Slow 4G, four paired runs each:
+   removing the font took LCP from 2611ms to 1947ms. Serving the identical 37KB from
+   this origin instead changed nothing (2615ms) — the round trip was never the cost,
+   the bytes were. Only cutting the bytes helps, so that is what this does: 37KB -> 13KB.
+
+   Built by `npm run build:font` from the upstream variable font; the character set is
+   image-tools/font-charset.txt, and the e2e suite fails if the site draws a character
+   that file does not list. unicode-range keeps the file from being fetched at all for
+   a page whose headings are entirely CJK. */
+@font-face {
+  font-family: "Cormorant Garamond";
+  font-style: normal;
+  font-weight: 400 500;
+  font-display: swap;
+  src: url("fonts/cormorant-garamond-subset.woff2") format("woff2");
+  unicode-range: U+0020-007E, U+00B7, U+014D, U+2013-2014, U+2018-2019, U+201C-201D,
+    U+2026;
+}
+
 /* Global Styles */
 :root {
   --bg-color: #faf8f3; /* Warm paper white — Japanese minimal base */
@@ -235,22 +259,42 @@ main {
   gap: 2.5rem;
 
   /* The cards are inserted by JS, so without a reservation the first one shoves
-     Selected Works, About, Gear and the footer down on arrival. One card's cover at
-     1.15fr of the content column, 4:3, times the count index.html declares —
-     deliberately a floor rather than an exact match, since overshooting would leave
-     dead space under a rendered card. */
-  --series-card-height: calc((min(1400px, 100vw) - 40px) * 0.43);
+     Selected Works, About, Gear and the footer down on arrival.
+
+     Side by side, the card is exactly as tall as its cover, so the reservation is
+     exact and CLS on a desktop viewport is 0. Stacked, the text sits *below* the
+     cover and this used to reserve the cover alone — 197px of a 572px card on a
+     390px phone. The remaining 375px of shift was the whole of the site's mobile
+     CLS: 0.101, just the wrong side of the 0.1 that counts as good.
+
+     --series-card-body is measured, not derived: the body is title, period, summary
+     and a link, so its height is a wrapping outcome, not a ratio. It runs 315-428px
+     across 320-1024px, tallest at the extremes where the summary wraps hardest.
+     Slight overshoot is the safe direction — it costs dead space under the card,
+     while undershoot costs a shift — so these sit near the top of each range. A
+     series whose summary is much longer will undershoot again; the CLS assertion in
+     tests/gallery.spec.js is what will say so. */
+  --series-card-cover: calc((min(1400px, 100vw) - 40px) * 0.43);
+  --series-card-body: 0px;
 
   min-height: calc(
-    var(--series-count, 1) * var(--series-card-height) +
+    var(--series-count, 1) * (var(--series-card-cover) + var(--series-card-body)) +
     (var(--series-count, 1) - 1) * 2.5rem
   );
 }
 
 @media (max-width: 1024px) {
-  /* Stacked: the cover goes full width at 16:9. */
+  /* Stacked: the cover goes full width at 16:9, with the body underneath it. */
   .series-list {
-    --series-card-height: calc((100vw - 40px) * 0.5625);
+    --series-card-cover: calc((100vw - 40px) * 0.5625);
+    --series-card-body: 350px;
+  }
+}
+
+@media (max-width: 480px) {
+  /* Narrow enough that the summary wraps to more lines again. */
+  .series-list {
+    --series-card-body: 410px;
   }
 }
 

@@ -1,0 +1,24 @@
+# Every character the self-hosted Cormorant Garamond subset can render.
+# Lines starting with # are comments; every other character on a line counts,
+# so trailing whitespace is significant and blank lines are harmless.
+#
+# Cormorant is the --font-heading face and is only ever asked for Latin: CJK in a
+# heading falls through to the device's own face by design. checkFontCharset in
+# scripts/check-gallery.js fails the build if a heading, a series title or a photo
+# filename introduces a non-CJK character that is not listed here — without it the
+# character would silently render in a different typeface next to the rest of the word.
+#
+# After editing this file, re-run `npm run build:font` and commit the new woff2.
+#
+# ASCII printable, U+0020-U+007E. Deliberately the whole block rather than only the
+# ~25 characters in use today: a subset that has to be rebuilt every time a photo is
+# renamed is a subset nobody will rebuild.
+ !"#$%&'()*+,-./0123456789:;<=>?@
+ABCDEFGHIJKLMNOPQRSTUVWXYZ[\]^_`
+abcdefghijklmnopqrstuvwxyz{|}~
+# Beyond ASCII, only what the content actually needs.
+# U+00B7 middle dot (used between hero facts), U+014D o-macron (romanised Japanese).
+·ō
+# Typographic punctuation that prose picks up on its own: en/em dash, curly quotes,
+# ellipsis. Cheap to carry, and each one is a visible fallback glyph when missing.
+–—‘’“”…

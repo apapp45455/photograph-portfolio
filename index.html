@@ -18,19 +18,6 @@
       imagesizes="(max-width: 1024px) calc(100vw - 40px), (max-width: 1440px) 55vw, 782px"
       fetchpriority="high"
     />
-    <!-- Cormorant Garamond only. Noto Sans TC came from here too until it was measured:
-         CJK ships as ~100 unicode-range subsets, so five weights made this sheet 610KB
-         (164KB over the wire, render-blocking) and pulled ~600KB of woff2 that outranks
-         images in the fetch queue — the LCP photo sat behind it from 3.0s to 6.5s.
-         style.css now uses the device's own CJK face. preload+onload keeps even this
-         much smaller sheet off the critical path; display=swap already made the
-         late-arriving-font swap part of the design. -->
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500&display=swap" onload="this.onload=null;this.rel='stylesheet'" />
-    <noscript>
-      <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500&display=swap" />
-    </noscript>
     <link rel="stylesheet" href="style.css" />
 
     <!-- Open Graph / Social Sharing -->
