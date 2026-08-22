@@ -54,6 +54,22 @@ function getSortedVersions(versions) {
 }
 
 /**
+ * A srcset candidate is `<url> <descriptor>`, candidates separated by commas — so a URL
+ * containing either character makes that candidate unparseable, and the browser drops
+ * the whole <source> rather than just the bad entry. `images/Canon R50特寫.jpg` did
+ * exactly that: both <source> elements were discarded and every viewport fell back to
+ * the <img src> 400px thumb, blown up to a 1170px box on a 3x phone.
+ *
+ * Only those two characters are escaped. CJK needs no encoding to parse, and leaving it
+ * alone keeps the manifest and index.html's hand-written cover preload readable — that
+ * preload is compared against this function byte-for-byte by checkHomePreload, so
+ * whatever this escapes has to be escaped there too.
+ */
+function toSrcsetUrl(url) {
+  return url.replace(/[\s,]/g, (char) => encodeURIComponent(char));
+}
+
+/**
  * @param {?string[]} tiers - restrict the candidates to these tiers, smallest-first;
  *   omit for all of them. The home grid passes a subset: its tiles are never wide
  *   enough to earn `large`, but a 3x phone at 100vw computes 1170px and would pick it.
@@ -65,7 +81,7 @@ export function getVersionSrcset(versions, format, tiers = null) {
 
   return getSortedVersions(candidates)
     .filter((version) => version[format])
-    .map((version) => `${version[format]} ${version.width}w`)
+    .map((version) => `${toSrcsetUrl(version[format])} ${version.width}w`)
     .join(", ");
 }
 

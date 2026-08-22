@@ -121,6 +121,41 @@ test.describe('gallery grid', () => {
         }
     });
 
+    // Every assertion above reads the srcset *attribute*, which is why a manifest path
+    // with a space in it went unnoticed: `Canon R50特寫-thumb.webp 400w` is two tokens
+    // where the parser wants one URL plus one descriptor, so Chrome discarded both
+    // <source> elements and fell back to the <img src> 400px thumb — at every viewport,
+    // for the life of the site. The attribute looked perfect the whole time. This reads
+    // what the browser actually committed to instead.
+    test('every tile commits to a WebP candidate, not the src fallback', async ({ page }) => {
+        await page.goto('/');
+        await expect(page.locator('#gallery-container .gallery-item-wrapper'))
+            .toHaveCount(homePhotos.length);
+
+        await page.evaluate(async () => {
+            for (let y = 0; y < document.body.scrollHeight; y += window.innerHeight / 2) {
+                window.scrollTo(0, y);
+                await new Promise((resolve) => setTimeout(resolve, 100));
+            }
+        });
+
+        await expect
+            .poll(async () => page.locator('#gallery-container .gallery-item').evaluateAll(
+                (nodes) => nodes.filter((img) => img.complete && img.naturalWidth > 0).length
+            ), { timeout: 30_000 })
+            .toBe(homePhotos.length);
+
+        const chosen = await page.locator('#gallery-container .gallery-item').evaluateAll(
+            (nodes) => nodes.map((img) => ({
+                alt: img.alt,
+                src: decodeURIComponent(img.currentSrc),
+            }))
+        );
+        const fellBack = chosen.filter((item) => !item.src.endsWith('.webp'));
+        expect(fellBack, `tiles that ignored their <source>: ${JSON.stringify(fellBack)}`)
+            .toEqual([]);
+    });
+
     test('every generated file referenced by the manifest is reachable', async ({ request }) => {
         const urls = galleryData.flatMap((entry) => [
             entry.original,
