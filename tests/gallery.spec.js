@@ -512,23 +512,43 @@ test.describe('typography and stability', () => {
             }).observe({ type: 'layout-shift', buffered: true });
         });
 
-        // The reservation has three bands and playwright.config.js runs two viewports,
-        // 1280 and 412 — so the constant covering 481-1024px, every tablet and every
-        // phone in landscape, is the one no project would ever exercise. Widths are
-        // driven from inside the test for that reason.
-        for (const [width, height] of [[320, 568], [430, 932], [768, 1024], [1024, 768], [1280, 800]]) {
-            await page.setViewportSize({ width, height });
-            await page.goto('/');
-            // Paint the shell first, or there is no "before" for a shift to measure from.
-            await expect(page.locator('.section-heading').first()).toBeVisible();
-            await expect(page.locator('.series-card')).toHaveCount(seriesData.length);
-            await expect(page.locator('#gallery-container .gallery-item-wrapper'))
-                .toHaveCount(homePhotos.length);
-            await page.waitForTimeout(1200);
+        // Both page types insert their content the same way, and both had a shift:
+        // the home page's series band (0.101) and the series page's photo grid, which
+        // pushed "Back to gallery" off screen (0.0298).
+        const pages = [
+            {
+                url: '/',
+                rendered: async () => {
+                    await expect(page.locator('.series-card')).toHaveCount(seriesData.length);
+                    await expect(page.locator('#gallery-container .gallery-item-wrapper'))
+                        .toHaveCount(homePhotos.length);
+                }
+            },
+            ...seriesData.map((series) => ({
+                url: `/${series.page}`,
+                rendered: async () => {
+                    await expect(page.locator('.project-item')).toHaveCount(series.photos.length);
+                }
+            }))
+        ];
 
-            const cls = await page.evaluate(() => window.__cls);
-            expect(cls, `${width}px: cumulative layout shift ${cls.toFixed(4)} — check --series-card-body in style.css`)
-                .toBeLessThan(0.05);
+        // The home reservation has three bands and playwright.config.js runs two
+        // viewports, 1280 and 412 — so the constant covering 481-1024px, every tablet
+        // and every phone in landscape, is the one no project would ever exercise.
+        // Widths are driven from inside the test for that reason.
+        for (const { url, rendered } of pages) {
+            for (const [width, height] of [[320, 568], [430, 932], [768, 1024], [1024, 768], [1280, 800]]) {
+                await page.setViewportSize({ width, height });
+                await page.goto(url);
+                // Paint the shell first, or there is no "before" for a shift to measure from.
+                await expect(page.locator('h1, .section-heading').first()).toBeVisible();
+                await rendered();
+                await page.waitForTimeout(1200);
+
+                const cls = await page.evaluate(() => window.__cls);
+                expect(cls, `${url} at ${width}px: cumulative layout shift ${cls.toFixed(4)}`)
+                    .toBeLessThan(0.05);
+            }
         }
     });
 });

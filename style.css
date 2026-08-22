@@ -516,6 +516,19 @@ main {
   margin-bottom: 2rem;
 }
 
+/* Same problem as .series-list, one page down: the grid is filled by JS, so until it
+   arrives the back link below it sits on screen and gets shoved off when the photos
+   land. No count or aspect-ratio arithmetic is needed here — the link only has to
+   start below the fold, and a rendered series grid is far taller than a viewport, so
+   from there it can only move further down. :empty stops matching the moment the
+   photos are inserted, so nothing stays reserved afterwards.
+
+   A series short enough to render under 100vh would shift the link back up instead;
+   the layout-shift assertion in tests/gallery.spec.js walks every series page. */
+.project-grid:empty {
+  min-height: 100vh;
+}
+
 .project-item {
   margin: 0;
   overflow: visible;
