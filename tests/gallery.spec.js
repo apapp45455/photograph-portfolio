@@ -494,6 +494,11 @@ test.describe('typography and stability', () => {
      * will undershoot it again. This is the assertion that says so.
      */
     test('nothing shifts as the series cards and the grid arrive', async ({ page }) => {
+        // Five widths per page, and the page list grows with series.json — each
+        // iteration pays both route delays plus the settle wait, so this outgrows the
+        // 30s default and would start failing as a timeout instead of as a regression.
+        test.slow();
+
         await page.route('**/js/*-data.json', async (route) => {
             await new Promise((resolve) => setTimeout(resolve, 600));
             return route.continue();

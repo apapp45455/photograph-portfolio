@@ -523,9 +523,14 @@ main {
    from there it can only move further down. :empty stops matching the moment the
    photos are inserted, so nothing stays reserved afterwards.
 
+   :not(:has(*)) rather than :empty, which a whitespace text node defeats — this rule
+   would then depend on the div in projects/japan.html staying on one line, and the
+   documented way to add a series is to copy that file. It also drops the reservation
+   for the error message the renderer inserts when the manifest fails to load.
+
    A series short enough to render under 100vh would shift the link back up instead;
    the layout-shift assertion in tests/gallery.spec.js walks every series page. */
-.project-grid:empty {
+.project-grid:not(:has(*)) {
   min-height: 100vh;
 }
 
