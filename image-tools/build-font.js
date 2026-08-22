@@ -3,9 +3,16 @@ const path = require('path');
 const subsetFont = require('subset-font');
 
 const CONFIG = {
-    // Pinned to the upstream variable font rather than to Google's already-subset
-    // woff2: hb-subset wants an SFNT, and this way the licence and the source agree.
-    SOURCE_URL: 'https://raw.githubusercontent.com/google/fonts/main/ofl/cormorantgaramond/CormorantGaramond%5Bwght%5D.ttf',
+    // The upstream variable font rather than Google's already-subset woff2: hb-subset
+    // wants an SFNT, and this way the licence and the source agree.
+    //
+    // Pinned to a commit, not to main. google/fonts ships rebuilds continuously, and a
+    // rebuild can change vertical metrics — which is what --series-card-body in
+    // style.css is a measured constant against. Nothing here would notice: the woff2
+    // has no regenerate-and-diff gate, so the first symptom would be the layout-shift
+    // assertion tripping at some viewport, months later, for no visible reason.
+    // 5fcfd99 is "Rebuild with babelfont 3.1.2", 2025-01-09.
+    SOURCE_URL: 'https://raw.githubusercontent.com/google/fonts/5fcfd99f2fa4422991d29f4adae3f2f4b774f058/ofl/cormorantgaramond/CormorantGaramond%5Bwght%5D.ttf',
     CHARSET: path.join('image-tools', 'font-charset.txt'),
     OUTPUT: path.join('fonts', 'cormorant-garamond-subset.woff2'),
     // style.css renders this face at 500, and at 400 for .series-card-title, which

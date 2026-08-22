@@ -268,12 +268,17 @@ main {
      CLS: 0.101, just the wrong side of the 0.1 that counts as good.
 
      --series-card-body is measured, not derived: the body is title, period, summary
-     and a link, so its height is a wrapping outcome, not a ratio. It runs 315-428px
-     across 320-1024px, tallest at the extremes where the summary wraps hardest.
-     Slight overshoot is the safe direction — it costs dead space under the card,
-     while undershoot costs a shift — so these sit near the top of each range. A
-     series whose summary is much longer will undershoot again; the CLS assertion in
-     tests/gallery.spec.js is what will say so. */
+     and a link, so its height is a wrapping outcome, not a ratio, and it is tallest
+     at both ends of the stacked range where the summary wraps hardest. Measured:
+
+       320px -> 428    360px -> 376    390px -> 376    430px -> 346
+       600px -> 315    768px -> 323    900px -> 341   1024px -> 360
+
+     Hence 410 below 480 (max 428) and 350 above it (max 360) — each near the top of
+     its own band, not of the 315-428 span across both. Slight overshoot is the safe
+     direction: it costs dead space under the card, while undershoot costs a shift.
+     A series whose summary is much longer will undershoot again; the layout-shift
+     assertion in tests/gallery.spec.js walks all three bands and will say so. */
   --series-card-cover: calc((min(1400px, 100vw) - 40px) * 0.43);
   --series-card-body: 0px;
 

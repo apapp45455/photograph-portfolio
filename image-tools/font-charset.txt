@@ -3,10 +3,11 @@
 # so trailing whitespace is significant and blank lines are harmless.
 #
 # Cormorant is the --font-heading face and is only ever asked for Latin: CJK in a
-# heading falls through to the device's own face by design. checkFontCharset in
-# scripts/check-gallery.js fails the build if a heading, a series title or a photo
-# filename introduces a non-CJK character that is not listed here — without it the
-# character would silently render in a different typeface next to the rest of the word.
+# heading falls through to the device's own face by design. Two assertions in
+# tests/gallery.spec.js — the e2e job, not the gallery job — fail if a character
+# outside this list is drawn in it: one walks the rendered pages, the other reads the
+# manifests directly, so a filename on a page the suite never visits is still caught.
+# Without them the character renders in a different typeface mid-word, silently.
 #
 # After editing this file, re-run `npm run build:font` and commit the new woff2.
 #

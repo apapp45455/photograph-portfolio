@@ -428,6 +428,27 @@ test.describe('typography and stability', () => {
      * time someone adds one. CJK is excluded by design — the stack hands those to the
      * device's own face, so they are meant to come from PingFang TC, not the subset.
      */
+    /**
+     * The in-page assertion below only sees what the two pages it visits paint, and it
+     * opens exactly one lightbox — so of the 18 filenames in the manifest, one reaches
+     * it. The filename is the input to this face that changes every time a photo is
+     * added (the lightbox caption is formatPhotoTitle(filename)), so it is the one that
+     * most needs covering. This reads the manifests directly instead, no browser
+     * involved. Only the fields that reach --font-heading: `period` and `summary`
+     * render in the body face and would demand glyphs the subset need not carry.
+     */
+    test('every photo title and series title is in the charset', () => {
+        const declared = subsetCharacters();
+        const text = [
+            ...galleryData.map((entry) => entry.filename.replace(/\.[^.]+$/, '').replace(/_/g, ' ')),
+            ...seriesData.map((series) => series.title)
+        ].join('');
+        const missing = [...new Set(text)].filter((char) => !/\s/.test(char)
+            && char.codePointAt(0) < 0x2e80 && !declared.has(char));
+        expect(missing, `add to image-tools/font-charset.txt, then run npm run build:font: ${JSON.stringify(missing)}`)
+            .toEqual([]);
+    });
+
     for (const { name, url } of [{ name: 'home', url: '/' }, { name: 'series', url: '/projects/japan.html' }]) {
         test(`${name}: every character drawn in Cormorant is in the charset`, async ({ page }) => {
             await page.goto(url);
@@ -477,23 +498,38 @@ test.describe('typography and stability', () => {
             await new Promise((resolve) => setTimeout(resolve, 600));
             return route.continue();
         });
+        // The font needs the same treatment, and it is this repo's problem now that it
+        // is served from here: font-display: swap re-lays out every heading when it
+        // lands, which from localhost is before the first paint.
+        await page.route('**/*.woff2', async (route) => {
+            await new Promise((resolve) => setTimeout(resolve, 600));
+            return route.continue();
+        });
         await page.addInitScript(() => {
             window.__cls = 0;
             new PerformanceObserver((list) => {
                 for (const entry of list.getEntries()) if (!entry.hadRecentInput) window.__cls += entry.value;
             }).observe({ type: 'layout-shift', buffered: true });
         });
-        await page.goto('/');
-        // Paint the shell first, or there is no "before" for a shift to be measured from.
-        await expect(page.locator('.section-heading').first()).toBeVisible();
-        await expect(page.locator('.series-card')).toHaveCount(seriesData.length);
-        await expect(page.locator('#gallery-container .gallery-item-wrapper'))
-            .toHaveCount(homePhotos.length);
-        await page.waitForTimeout(1500);
 
-        const cls = await page.evaluate(() => window.__cls);
-        expect(cls, `cumulative layout shift ${cls.toFixed(4)} — check --series-card-body in style.css`)
-            .toBeLessThan(0.05);
+        // The reservation has three bands and playwright.config.js runs two viewports,
+        // 1280 and 412 — so the constant covering 481-1024px, every tablet and every
+        // phone in landscape, is the one no project would ever exercise. Widths are
+        // driven from inside the test for that reason.
+        for (const [width, height] of [[320, 568], [430, 932], [768, 1024], [1024, 768], [1280, 800]]) {
+            await page.setViewportSize({ width, height });
+            await page.goto('/');
+            // Paint the shell first, or there is no "before" for a shift to measure from.
+            await expect(page.locator('.section-heading').first()).toBeVisible();
+            await expect(page.locator('.series-card')).toHaveCount(seriesData.length);
+            await expect(page.locator('#gallery-container .gallery-item-wrapper'))
+                .toHaveCount(homePhotos.length);
+            await page.waitForTimeout(1200);
+
+            const cls = await page.evaluate(() => window.__cls);
+            expect(cls, `${width}px: cumulative layout shift ${cls.toFixed(4)} — check --series-card-body in style.css`)
+                .toBeLessThan(0.05);
+        }
     });
 });
 
