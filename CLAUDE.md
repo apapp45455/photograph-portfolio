@@ -22,6 +22,9 @@ node image-tools/compress.js raw-images/*.jpg   # batch
 npm run build:gallery
 # or: node image-tools/generate-gallery.js
 
+# Rebuild the self-hosted font subset (only after editing image-tools/font-charset.txt)
+npm run build:font
+
 # Checks (same ones CI runs)
 npm run lint                # eslint + stylelint + html-validate
 npm run check:gallery       # manifest vs files on disk (fast)
@@ -69,7 +72,10 @@ npm run build:gallery -- --force   # re-encode derivatives that already exist
 **Key files:**
 - `index.html` — home page; slim sticky header, series cards, then the masonry grid of ungrouped photos; lightbox DOM is static. Its `<head>` also carries a hand-written `<link rel="preload" as="image">` for the **first series cover** — the LCP element, which `SeriesCardRenderer` only builds after two round trips, so the preload scanner would never see it. Its `imagesrcset`/`imagesizes` are a hand-maintained copy of what `createCover` computes and must stay byte-identical, or the browser fetches both candidates; `checkHomePreload` in `scripts/check-gallery.js` is what holds them together
 - `projects/japan.html` — a series page; hero + intro are hand-written, the photo grid is generated
-- `style.css` — all styles (Japanese-light theme, Cormorant Garamond uppercase headings, responsive masonry grid, series cards, series-page editorial grid, lightbox)
+- `style.css` — all styles (Japanese-light theme, Cormorant Garamond uppercase headings, responsive masonry grid, series cards, series-page editorial grid, lightbox). Also carries the `@font-face` for the self-hosted font and the `.series-list` height reservation
+- `fonts/` — `cormorant-garamond-subset.woff2` (13KB) plus its OFL licence. **Generated**; rebuild with `npm run build:font`, never hand-edit
+- `image-tools/font-charset.txt` — the characters the subset covers. Hand-written, and the input the build reads
+- `image-tools/build-font.js` — downloads the upstream variable font and subsets it
 - `js/` — frontend logic as native ES modules (no build step); entry points `js/main.js` (home) and `js/project.js` (series pages), loaded with `<script type="module">`
 - `js/gallery-data.json`, `js/series-data.json` — **generated files**; do not hand-edit
 - `image-tools/series.json` — hand-written series definitions (the only place series membership is declared)
@@ -89,6 +95,31 @@ npm run build:gallery -- --force   # re-encode derivatives that already exist
 
 **Verification:** `.claude/skills/verify/SKILL.md` — serve with `python3 -m http.server`, drive with Playwright + system Chrome (`channel: "chrome"`). Known noise documented there (Cloudflare CORS on localhost).
 
+## Fonts
+
+Cormorant Garamond is **self-hosted and subset**; there is no request to fonts.googleapis.com. This is a measured decision, not a preference:
+
+| Variant (deployed site, Slow 4G, 4 paired runs) | LCP |
+|---|---|
+| As shipped with Google Fonts | 2611 ms |
+| Google Fonts blocked entirely | 1947 ms |
+| Identical 37KB face served from this origin | 2615 ms |
+| Font cut to ~9KB | 2063 ms |
+
+The third row is the one that matters: **removing the extra origin and its round trip bought nothing.** A webfont is fetched at High priority, which outranks images, and the 37KB lands in exactly the window where the 140KB LCP cover is downloading on a slow link. Only the byte count moves LCP, so self-hosting is only worth doing together with subsetting.
+
+`noLayoutClosure` is what makes the subset small — 36KB → 13KB. Cormorant carries a large set of ligatures, alternates and figure styles reachable only through GSUB, and keeping the glyphs they can substitute in costs more than the outlines actually drawn. Nothing in `style.css` turns any of those features on. The `wght` axis is kept at 400–500 rather than pinned: `.series-card-title` sets no weight, inherits `body`'s 300, and lands on the axis minimum.
+
+Adding a photo or a series whose title uses a character outside `image-tools/font-charset.txt` makes that one glyph render in the next family in the stack — a heading in two typefaces, with nothing logged. The e2e suite compares every character actually drawn in a Cormorant element against the charset file and fails naming the character; the fix is to add it and re-run `npm run build:font`.
+
+`document.fonts.check()` cannot be used for that comparison. It answers from the `@font-face` `unicode-range`, which still spans all of ASCII, so it reports a character as present after it has been cut out of the woff2.
+
+## Layout stability
+
+`.series-list` reserves its height before JS inserts the cards, from `--series-count` (declared in `index.html`) and two custom properties. Side by side the card is exactly as tall as its cover, so the reservation is exact. **Stacked (≤1024px) the body sits below the cover** and needs `--series-card-body` on top — a measured constant (315–428px across 320–1024px), not a ratio, since it is a text-wrapping outcome. Overshooting costs dead space under the card; undershooting costs a shift, so the constants sit near the top of each range.
+
+Getting this wrong is invisible locally: served from localhost the manifests arrive **before the first paint**, so the insertion produces no shift at all. The e2e assertion delays `js/*-data.json` by 600ms for exactly that reason — without the delay it passes with the reservation deleted outright.
+
 ## CI
 
 `.github/workflows/ci.yml` runs on every push to `main`, every PR, and `workflow_dispatch`. Four parallel jobs plus a `CI passed` gate job (the one to mark required in branch protection):
@@ -97,7 +128,7 @@ npm run build:gallery -- --force   # re-encode derivatives that already exist
 |-----|----------------|
 | `lint` | ESLint (`eslint.config.js`: `js/` = browser ESM, `image-tools/`+`scripts/` = Node CJS), Stylelint (`.stylelintrc.json`), html-validate (`.htmlvalidate.json`) |
 | `gallery` | `scripts/check-gallery.js --deep` (files, dimensions, orphans, the series rules the generator does not enforce, the shape of each entry's `exif` block, plus two couplings that live outside the manifest: `checkHomePreload` ties `index.html`'s cover preload to `SeriesCardRenderer.createCover`, and `checkGridTiers` ties `CONFIG.GRID_TIERS` to the generator's `IMAGE_SIZES` — in both directions, so the list can neither be renamed out of step nor grow `large` back) **plus `npm run check:generated`, which re-runs `generate-gallery.js` and diffs the result** (the same script `npm test` runs, so the local suite is not green on the one change the gate exists to catch) — that diff, not a hand-written comparison, is what catches a `series.json` edit committed without a rebuild. It also rejects `#`, `?` or `%` in a source filename: those are the URL's own delimiters, so unlike a space they cannot be fixed by escaping at render time — `img.src` and the cover preload are written raw on purpose |
-| `e2e` | `tests/gallery.spec.js` on desktop + mobile viewports: home grid count matches the ungrouped manifest entries, all images decode, every referenced asset returns 200, lightbox open/nav/close, the metadata panel matching the photo on screen (asserted per row against the manifest, on both page types) with no request to an original or to a CDN, every tile's `currentSrc` actually landing on a WebP candidate rather than the `<img src>` fallback — on the home grid, on series tiles, and on the hand-written series hero, whose `srcset` no code path escapes (these are the only assertions that read what the browser chose instead of what the attribute says), zero unexpected console errors — plus, per series, one card on the home page and a series page whose photos match the layout (order, span, caption, `../`-rebased paths) |
+| `e2e` | `tests/gallery.spec.js` on desktop + mobile viewports: home grid count matches the ungrouped manifest entries, all images decode, every referenced asset returns 200, lightbox open/nav/close, the metadata panel matching the photo on screen (asserted per row against the manifest, on both page types) with no request to an original or to a CDN, every tile's `currentSrc` actually landing on a WebP candidate rather than the `<img src>` fallback — on the home grid, on series tiles, and on the hand-written series hero, whose `srcset` no code path escapes (these are the only assertions that read what the browser chose instead of what the attribute says), zero unexpected console errors, every character the site draws in Cormorant being present in `font-charset.txt`, and cumulative layout shift staying under 0.05 as the cards and grid arrive — plus, per series, one card on the home page and a series page whose photos match the layout (order, span, caption, `../`-rebased paths) |
 | `lighthouse` | `.lighthouserc.json` budget on a locally served copy of the home page **and** `projects/japan.html` (performance ≥ 0.5, a11y / best-practices / SEO ≥ 0.9) |
 
 No CD job — GitHub Pages deploys from the branch on its own.
