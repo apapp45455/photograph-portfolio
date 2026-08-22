@@ -75,6 +75,19 @@ function fellBackToSrc(chosen) {
         .map((item) => ({ ...item, src: readable(item.src) }));
 }
 
+/**
+ * Waits for the lightbox image to finish decoding before reading currentSrc: the
+ * selection is made against the <source> that showItem fills in the same task, so
+ * reading too early can catch the element between the two assignments.
+ */
+async function lightboxChoice(page) {
+    const img = page.locator('#lightbox-img');
+    await expect
+        .poll(() => img.evaluate((el) => el.complete && el.naturalWidth > 0), { timeout: 30_000 })
+        .toBe(true);
+    return img.evaluate((el) => ({ alt: el.alt, src: el.currentSrc }));
+}
+
 function collectConsoleErrors(page) {
     const errors = [];
     page.on('console', (msg) => {
@@ -215,6 +228,11 @@ test.describe('lightbox', () => {
         await expect(page.locator('#lightbox-img')).toHaveAttribute('src', /-large\.jpg$/);
         await expect(page.locator('#lightbox-caption')).not.toBeEmpty();
 
+        // The src attribute above is the JPEG *fallback* and says nothing about what was
+        // fetched. The lightbox shows the 1920px tier, the heaviest file on the site, so
+        // the format it actually commits to is the whole point: read currentSrc.
+        expect(fellBackToSrc([await lightboxChoice(page)]), 'the lightbox ignored its <source>').toEqual([]);
+
         // Scroll lock while open
         await expect.poll(() => page.evaluate(() => document.body.style.overflow)).toBe('hidden');
     });
@@ -250,8 +268,11 @@ test.describe('lightbox', () => {
         // order, so once the next photo's own image lands, a re-introduced fetch from
         // the same task has landed too.
         const next = homePhotos[1];
+        // The WebP, not the JPEG: the lightbox serves <source type="image/webp"> now, so
+        // the JPEG on the <img src> is the fallback and is never requested by a browser
+        // that took the source. Waiting on it here hung until the test timed out.
         const nextImageLoaded = page.waitForResponse((response) =>
-            decodeURIComponent(response.url()).endsWith(next.versions.large.jpg));
+            decodeURIComponent(response.url()).endsWith(next.versions.large.webp));
 
         await page.keyboard.press('ArrowRight');
         await nextImageLoaded;
@@ -732,6 +753,11 @@ for (const series of seriesData) {
             const lightbox = page.locator('#lightbox');
             await expect(lightbox).toHaveClass(/active/);
             await expect(page.locator('#lightbox-img')).toHaveAttribute('src', /^\.\.\/images\/optimized\/.*-large\.jpg$/);
+
+            // Same guard as the home page, on the rebased path: the <source> srcset is
+            // built from `../images/...` here, and a broken candidate would fall back to
+            // that JPEG with the attribute still looking correct.
+            expect(fellBackToSrc([await lightboxChoice(page)]), 'the series lightbox ignored its <source>').toEqual([]);
 
             // A series photo carries an editorial caption; the lightbox must use it
             // rather than falling back to the filename.

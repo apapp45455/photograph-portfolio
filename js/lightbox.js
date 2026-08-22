@@ -1,4 +1,4 @@
-import { formatPhotoTitle, getLargestVersionUrl } from "./utils.js";
+import { formatPhotoTitle, getLargestVersionUrl, toSrcsetUrl } from "./utils.js";
 
 export class LightboxView {
   constructor(elements, classes, pageBody = document.body) {
@@ -43,6 +43,14 @@ export class LightboxView {
 
   showItem(item) {
     this.applyReservedMediaSize(item);
+    // The <source> is filled first, and only then the <img src>: the img is already in
+    // the DOM, so setting src against a stale/empty source starts a JPEG fetch the WebP
+    // then supersedes. Space and comma are srcset's own delimiters, so a filename
+    // carrying either would make this candidate unparseable and the JPEG would win
+    // silently — `images/Canon R50特寫.jpg` is exactly that case, which is why the
+    // escaping is toSrcsetUrl's and not a second copy of the same rule.
+    const webp = getLargestVersionUrl(item.versions, "webp");
+    this.elements.webpSource.srcset = webp ? toSrcsetUrl(webp) : "";
     this.elements.img.src = getLargestVersionUrl(item.versions, "jpg") || item.original;
     // Series photos already carry an editorial caption; fall back to the filename only
     // for the home grid, which has none.
