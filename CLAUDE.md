@@ -114,6 +114,20 @@ Adding a photo or a series whose title uses a character outside `image-tools/fon
 
 `document.fonts.check()` cannot be used for that comparison. It answers from the `@font-face` `unicode-range`, which still spans all of ASCII, so it reports a character as present after it has been cut out of the woff2.
 
+## Preloading the module graph does not work here (measured twice)
+
+`js/main.js` imports config/gallery/series/page, which import utils/exif/lightbox, so the browser spends three round trips discovering files it will certainly need and only then fetches `series-data.json`. The obvious fix is a block of `<link rel="modulepreload">` plus `<link rel="preload" as="fetch" crossorigin>` for the manifests. **It makes LCP worse.** Measured on the deployed site by injecting the hints into the real HTML, with the control served through the same interception:
+
+| | LCP | Cover image done | series-data.json |
+|---|---|---|---|
+| Control | 2619 ms | 2545 ms | 1879 ms |
+| + 7 × modulepreload | 3015 ms | 2988 ms | 1622 ms |
+| + manifest preloads | 3201 ms | 3179 ms | 1289 ms |
+
+The hints do exactly what they promise — the manifest lands 590 ms sooner — but the 14KB they pull forward is 14KB the LCP cover no longer gets, and the cover finishes 630 ms later. On a link this slow the page is bandwidth-bound, not round-trip-bound, so moving bytes earlier only reorders which request waits.
+
+This was tested once before the font was self-hosted, when the cover was the binding constraint, and again afterwards when the JS chain had become the binding constraint. It lost both times. The `crossorigin` on the manifest preloads is right, incidentally — without it `fetch()` requests the file a second time.
+
 ## Layout stability
 
 `.series-list` reserves its height before JS inserts the cards, from `--series-count` (declared in `index.html`) and two custom properties. Side by side the card is exactly as tall as its cover, so the reservation is exact. **Stacked (≤1024px) the body sits below the cover** and needs `--series-card-body` on top — a measured constant (315–428px across 320–1024px), not a ratio, since it is a text-wrapping outcome. Overshooting costs dead space under the card; undershooting costs a shift, so the constants sit near the top of each range.
