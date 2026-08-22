@@ -110,6 +110,36 @@ async function verifyPixels(data) {
  * close. The `gallery` CI job re-runs the generator and diffs the result instead,
  * which is exact by construction and needs no maintenance.
  */
+/**
+ * Space and comma are *srcset's* delimiters, and toSrcsetUrl escapes them at render time.
+ * These three are the *URL's* own delimiters, and no render-time escaping reaches every
+ * consumer: img.src, the lightbox src and index.html's preload are all written raw — an
+ * attribute value is not tokenized, so escaping them there would be wrong.
+ *
+ *   a#b.jpg   the path truncates at the fragment; the browser requests images/a
+ *   a?b.jpg   the tail becomes a query string; Pages serves a 404
+ *   50%.jpg   opens a percent-escape, so the name no longer says whether `%20` means a
+ *             space or those three literal characters, and decodeURIComponent throws on it
+ *
+ * (`#` and `?` are the fatal ones — verified against the URL parser. `%` survives a
+ * fetch, but it makes every path ambiguous and crashes the tooling that decodes one.)
+ *
+ * So this is a rename-the-file guard, not an escaping one, and it belongs at the moment
+ * the photo is added. That is the lesson of `Canon R50特寫.jpg`: a filename character
+ * degraded the site silently for the entire life of that photo.
+ */
+function checkFilenameCharacters(sourceFiles) {
+    for (const name of sourceFiles) {
+        const bad = [...new Set(name.match(/[#?%]/g) || [])];
+        if (bad.length === 0) continue;
+        fail(
+            `${CONFIG.IMAGES}/${name}: filename contains ${bad.map((c) => `"${c}"`).join(', ')} — `
+            + 'a URL delimiter that render-time escaping cannot fix, because img.src and the '
+            + 'cover preload are written raw. Rename the file and re-run `npm run build:gallery`.'
+        );
+    }
+}
+
 function checkSeriesSource(data) {
     let source;
     try {
@@ -454,6 +484,8 @@ async function main() {
     const sourceFiles = listFiles(CONFIG.IMAGES)
         .filter((name) => CONFIG.ALLOWED_EXTENSIONS.includes(path.extname(name).toLowerCase()));
     const optimizedFiles = new Set(listFiles(CONFIG.OPTIMIZED).map(norm));
+
+    checkFilenameCharacters(sourceFiles);
 
     const sourceOnDisk = new Set(sourceFiles.map(norm));
     const referencedSources = new Set();

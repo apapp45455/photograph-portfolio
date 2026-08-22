@@ -37,6 +37,31 @@ function metadataValue(metadata, label) {
     return metadata.locator(`.metadata-item:has(.label:text-is("${label}")) .value`);
 }
 
+/**
+ * `currentSrc` is what the browser actually committed to, as opposed to the srcset
+ * *attribute*, which looked perfect throughout the bug this guards against. Anything
+ * not ending in .webp means every WebP candidate was unusable and the <img src>
+ * fallback won.
+ *
+ * The URL is compared while still percent-encoded: the extension survives encoding
+ * either way, and decodeURIComponent throws URIError on a filename containing a bare
+ * `%` — the same class of "one character breaks the pipeline" failure this test exists
+ * to catch, which would surface as a decode crash instead of a named photo. Only the
+ * failures are decoded, and only to make the message readable.
+ */
+function fellBackToSrc(chosen) {
+    const readable = (url) => {
+        try {
+            return decodeURIComponent(url);
+        } catch {
+            return url;
+        }
+    };
+    return chosen
+        .filter((item) => !item.src.endsWith('.webp'))
+        .map((item) => ({ ...item, src: readable(item.src) }));
+}
+
 function collectConsoleErrors(page) {
     const errors = [];
     page.on('console', (msg) => {
@@ -119,6 +144,37 @@ test.describe('gallery grid', () => {
             expect(srcset).toBeTruthy();
             expect(srcset).not.toContain('-large.');
         }
+    });
+
+    // Every assertion above reads the srcset *attribute*, which is why a manifest path
+    // with a space in it went unnoticed: `Canon R50特寫-thumb.webp 400w` is three tokens
+    // where the parser wants one URL plus one descriptor, so the candidate is dropped —
+    // and since every tier shares that filename, all three go, leaving both <source>
+    // elements empty. Chrome skipped them and used the <img src> 400px thumb, at every
+    // viewport, for the life of the site. The attribute looked perfect the whole time.
+    // This reads what the browser actually committed to instead.
+    test('every tile commits to a WebP candidate, not the src fallback', async ({ page }) => {
+        await page.goto('/');
+        await expect(page.locator('#gallery-container .gallery-item-wrapper'))
+            .toHaveCount(homePhotos.length);
+
+        await page.evaluate(async () => {
+            for (let y = 0; y < document.body.scrollHeight; y += window.innerHeight / 2) {
+                window.scrollTo(0, y);
+                await new Promise((resolve) => setTimeout(resolve, 100));
+            }
+        });
+
+        await expect
+            .poll(async () => page.locator('#gallery-container .gallery-item').evaluateAll(
+                (nodes) => nodes.filter((img) => img.complete && img.naturalWidth > 0).length
+            ), { timeout: 30_000 })
+            .toBe(homePhotos.length);
+
+        const chosen = await page.locator('#gallery-container .gallery-item').evaluateAll(
+            (nodes) => nodes.map((img) => ({ alt: img.alt, src: img.currentSrc }))
+        );
+        expect(fellBackToSrc(chosen), 'tiles that ignored their <source>').toEqual([]);
     });
 
     test('every generated file referenced by the manifest is reachable', async ({ request }) => {
@@ -419,6 +475,13 @@ for (const series of seriesData) {
                 ), { timeout: 30_000 })
                 .toBe(series.photos.length);
 
+            // Same guard as the home grid, on the other renderer: these paths go through
+            // withAssetBase first, so the escaped candidate is `../images/...` here.
+            const chosen = await page.locator('.project-item img').evaluateAll(
+                (nodes) => nodes.map((img) => ({ alt: img.alt, src: img.currentSrc }))
+            );
+            expect(fellBackToSrc(chosen), 'series tiles that ignored their <source>').toEqual([]);
+
             expect(consoleErrors).toEqual([]);
         });
 
@@ -441,6 +504,14 @@ for (const series of seriesData) {
 
             const decoded = await hero.evaluate((img) => img.naturalWidth / img.naturalHeight);
             expect(decoded).toBeCloseTo(series.cover.aspectRatio, 2);
+
+            // The hero is the one srcset in the repo that getVersionSrcset never touches
+            // — it is typed into the page — so the escaping fix cannot protect it. A
+            // cover filename with a space would drop both the <source> and the <img
+            // srcset>, and the src left behind is the *large* JPEG, so a phone would
+            // pull 1920px. Assert on what the browser chose, not on the attribute.
+            const heroChoice = await hero.evaluate((img) => ({ alt: img.alt, src: img.currentSrc }));
+            expect(fellBackToSrc([heroChoice]), 'the hero ignored its <source>').toEqual([]);
 
             const back = page.locator('.project-back a');
             await expect(back).toHaveAttribute('href', /index\.html/);

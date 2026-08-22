@@ -54,6 +54,30 @@ function getSortedVersions(versions) {
 }
 
 /**
+ * A srcset candidate is `<url> <descriptor>`, candidates separated by commas — so a URL
+ * containing either character splits into tokens the parser cannot read, and the
+ * candidate is discarded.
+ *
+ * The discard is per *candidate*, not per element: a srcset whose second entry carries a
+ * space still serves its first (verified in Chrome). What made `images/Canon R50特寫.jpg`
+ * fatal is that every tier is named after the same file, so one space invalidated all
+ * three candidates at once — both <source> elements were left with nothing usable, were
+ * skipped, and every viewport fell back to the <img src> 400px thumb, blown up to a
+ * 1170px box on a 3x phone.
+ *
+ * `%` is deliberately not escaped, which keeps this idempotent: re-running it over an
+ * already-encoded path cannot double-encode one.
+ *
+ * Only those two characters are escaped. CJK needs no encoding to parse, and leaving it
+ * alone keeps the manifest and index.html's hand-written cover preload readable —
+ * checkHomePreload builds its expected value by *calling* this function, so anything
+ * escaped here has to be typed into that preload by hand to keep the check green.
+ */
+function toSrcsetUrl(url) {
+  return url.replace(/[\s,]/g, (char) => encodeURIComponent(char));
+}
+
+/**
  * @param {?string[]} tiers - restrict the candidates to these tiers, smallest-first;
  *   omit for all of them. The home grid passes a subset: its tiles are never wide
  *   enough to earn `large`, but a 3x phone at 100vw computes 1170px and would pick it.
@@ -65,7 +89,7 @@ export function getVersionSrcset(versions, format, tiers = null) {
 
   return getSortedVersions(candidates)
     .filter((version) => version[format])
-    .map((version) => `${version[format]} ${version.width}w`)
+    .map((version) => `${toSrcsetUrl(version[format])} ${version.width}w`)
     .join(", ");
 }
 
