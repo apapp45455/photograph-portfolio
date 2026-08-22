@@ -128,6 +128,23 @@ The hints do exactly what they promise — the manifest lands 590 ms sooner — 
 
 This was tested once before the font was self-hosted, when the cover was the binding constraint, and again afterwards when the JS chain had become the binding constraint. It lost both times. The `crossorigin` on the manifest preloads is right, incidentally — without it `fetch()` requests the file a second time.
 
+## Accessibility
+
+**`prefers-reduced-motion` is honoured by one blanket rule over `*`**, capping `animation-duration`, `animation-iteration-count`, `transition-duration` and `scroll-behavior`. What it actually buys is the **infinite** `skeletonShimmer` and smooth scrolling; the e2e block fails if either declaration is removed.
+
+The duration is written `0.01ms` rather than `0` by convention — it keeps `animationend` firing — and **not**, as it first appears, to stop the grid going invisible. That failure is impossible here, and it is worth knowing why before someone "simplifies" the rule: `.gallery-item` is indeed `opacity: 0` and only reaches 1 through `imageFadeIn` with `animation-fill-mode: forwards`, but `.gallery-item.loaded { opacity: 1 }` is added by JS on `img.onload`, and neither `.lightbox-img` nor `.lightbox-info` declares `opacity: 0` at rest. Measured: `animation-duration: 0s`, and even `animation: none !important`, both still leave the grid at opacity 1. The opacity assertions in the suite are kept to pin *that* coupling — delete the `.loaded` fallback and they are what notices — not because the blanket rule is one keystroke away from blanking the site.
+
+**`.skip-link` is the first child of `<body>` on both pages and targets `<main id="main" tabindex="-1">`.** The `tabindex` is load-bearing: without it the anchor moves the scroll position but not focus, so the next Tab lands back in the nav the link just skipped. It is hidden with `transform`, never `display: none` or `visibility: hidden` — either would remove it from the tab order and defeat the point — and sits above the sticky header's `z-index: 1000`.
+
+**Contrast**, measured with the relative-luminance formula against `--bg-color: #faf8f3`:
+
+| Token | Before | After |
+|---|---|---|
+| `--text-secondary` | `#9a9085` — 2.95 ✗ | `#786e63` — 4.70 ✓ |
+| `--accent-color` | `#b08d4f` — 2.92 ✗ | `#866b3c` — 4.73 ✓ |
+
+Only lightness moved, so the palette is still warm. `--accent-soft` looks worse than both (1.97) and is **correctly left alone**: its only text uses are `.project-eyebrow` and `.project-title-dot`, which sit inside `.project-hero-overlay` — white text on a dark scrim over a photo. Darkening it to pass against the *page* background would make it dark-on-dark. Its other uses are hover `border-color`. Check where a token is actually drawn before trusting a ratio computed against the default background.
+
 ## Layout stability
 
 `.series-list` reserves its height before JS inserts the cards, from `--series-count` (declared in `index.html`) and two custom properties. Side by side the card is exactly as tall as its cover, so the reservation is exact. **Stacked (≤1024px) the body sits below the cover** and needs `--series-card-body` on top — a measured constant (315–428px across 320–1024px), not a ratio, since it is a text-wrapping outcome. Overshooting costs dead space under the card; undershooting costs a shift, so the constants sit near the top of each range.
@@ -158,8 +175,9 @@ Notes:
 - The e2e suite starts its own `python3 -m http.server` via `playwright.config.js` (`webServer`), no manual serve needed.
 - Expected console noise is filtered in `IGNORED_CONSOLE` in the spec (the Cloudflare beacon).
 - `generate-gallery.js` sorts filenames by UTF-16 code unit — not `localeCompare`, whose CJK collation depends on the ICU data Node ships with — so the manifest is byte-identical across machines and Node versions. CJK filenames are compared NFC-normalised (macOS gives NFD).
-- The a11y score sits just above the 0.9 gate: the muted palette (`--text-secondary` / `--accent-color` on the warm-white background) fails WCAG AA contrast on small text. Darkening those tokens is the fix if the budget ever trips.
+- The a11y budget used to sit just above the 0.9 gate because `--text-secondary` and `--accent-color` failed WCAG AA on small text. Both were darkened; see **Accessibility** below for the values and why `--accent-soft` was deliberately left alone.
 - Dependabot (`.github/dependabot.yml`) opens monthly npm + actions update PRs.
+- **There is no `robots.txt`, and adding one here would do nothing.** This deploys to a GitHub Pages *project page*, so the file would be served at `/photograph-portfolio/robots.txt`; crawlers only ever fetch `/robots.txt` at the origin root, which belongs to the separate `apapp45455.github.io` repo. `sitemap.xml` is unaffected — a sitemap may live at any path that covers the URLs it lists, so it ships here and is submitted to Search Console by hand. The same applies to anything else that is origin-root-only.
 
 **Image size tiers** (configured in `generate-gallery.js`):
 | Key | Max width |
@@ -168,8 +186,13 @@ Notes:
 | medium | 1080 px |
 | large | 1920 px |
 
-The `<picture>` element serves WebP with JPEG fallback; `sizes` attribute targets mobile (<600 px), tablet (<1024 px), and desktop.
+The `<picture>` element serves WebP with JPEG fallback; `sizes` attribute targets mobile (<600 px), tablet (<1024 px), and desktop. **The lightbox included** — it served JPEG only until it was given a `<source type="image/webp">` of its own, which is the surface that matters most since it is the only one that reaches `large`. Measured on disk across the 18 photos at that tier: 7,076,457 B of JPEG against 5,080,958 B of WebP, **−28.2%**, and not one of the 18 is larger as WebP.
 
-**Not every surface offers every tier.** The home grid stops at `medium` (`CONFIG.GRID_TIERS` in `js/config.js`): a tile is 100vw on a phone, and a 3× screen computes 390 × 3 = 1170, clears 1080 and would otherwise take the 1920px file for a 390px box. Series pages (`ProjectItemRenderer`, whose `full` span really is ~1060 px wide) and the lightbox (`getLargestVersionUrl`) still reach `large`.
+Two traps that cost time there:
+
+- `getLargestVersionUrl` returns a **raw** URL, and srcset's delimiters are space and comma — so assigning it straight to `source.srcset` makes the candidate unparseable for `images/Canon R50特寫.jpg` and the JPEG wins silently. `toSrcsetUrl` is exported from `utils.js` for exactly this; do not write a second copy of the escaping rule.
+- Wrapping the lightbox `<img>` in `<picture>` makes the *picture* the flex item of `.lightbox-content-wrapper` — measured 48px wider than the photo, plus a baseline strut, which shifted the image 40px left and grew the dialog ~9px. `.lightbox-content-wrapper picture { display: contents }` hands layout back to the `<img>` and does not disturb `<source>` selection. Nothing in the suite catches this; it was found by measuring the rects.
+
+**Not every surface offers every tier.** The home grid stops at `medium` (`CONFIG.GRID_TIERS` in `js/config.js`): a tile is 100vw on a phone, and a 3× screen computes 390 × 3 = 1170, clears 1080 and would otherwise take the 1920px file for a 390px box. Series pages (`ProjectItemRenderer`, whose `full` span really is ~1060 px wide) and the lightbox (`getLargestVersionUrl`, now for both formats) still reach `large`.
 
 WebP is encoded at `WEBP_QUALITY: 75` / `WEBP_EFFORT: 6`, separately from `JPEG_QUALITY: 80` — sharing one number produced WebP files *larger* than the mozjpeg fallback for 10 of 54 derivatives, so `<picture>` was handing over the heavier candidate.

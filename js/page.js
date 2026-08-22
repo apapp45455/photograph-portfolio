@@ -22,6 +22,7 @@ export function getLightboxElements() {
   return {
     container: document.querySelector(CONFIG.SELECTORS.LIGHTBOX),
     img: document.querySelector(CONFIG.SELECTORS.LIGHTBOX_IMG),
+    webpSource: document.querySelector(CONFIG.SELECTORS.LIGHTBOX_WEBP),
     info: document.querySelector(CONFIG.SELECTORS.LIGHTBOX_INFO),
     caption: document.querySelector(CONFIG.SELECTORS.LIGHTBOX_CAPTION),
     metadata: document.querySelector(CONFIG.SELECTORS.LIGHTBOX_METADATA),

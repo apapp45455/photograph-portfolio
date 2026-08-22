@@ -73,7 +73,7 @@ function getSortedVersions(versions) {
  * checkHomePreload builds its expected value by *calling* this function, so anything
  * escaped here has to be typed into that preload by hand to keep the check green.
  */
-function toSrcsetUrl(url) {
+export function toSrcsetUrl(url) {
   return url.replace(/[\s,]/g, (char) => encodeURIComponent(char));
 }
 

@@ -75,6 +75,19 @@ function fellBackToSrc(chosen) {
         .map((item) => ({ ...item, src: readable(item.src) }));
 }
 
+/**
+ * Waits for the lightbox image to finish decoding before reading currentSrc: the
+ * selection is made against the <source> that showItem fills in the same task, so
+ * reading too early can catch the element between the two assignments.
+ */
+async function lightboxChoice(page) {
+    const img = page.locator('#lightbox-img');
+    await expect
+        .poll(() => img.evaluate((el) => el.complete && el.naturalWidth > 0), { timeout: 30_000 })
+        .toBe(true);
+    return img.evaluate((el) => ({ alt: el.alt, src: el.currentSrc }));
+}
+
 function collectConsoleErrors(page) {
     const errors = [];
     page.on('console', (msg) => {
@@ -215,6 +228,11 @@ test.describe('lightbox', () => {
         await expect(page.locator('#lightbox-img')).toHaveAttribute('src', /-large\.jpg$/);
         await expect(page.locator('#lightbox-caption')).not.toBeEmpty();
 
+        // The src attribute above is the JPEG *fallback* and says nothing about what was
+        // fetched. The lightbox shows the 1920px tier, the heaviest file on the site, so
+        // the format it actually commits to is the whole point: read currentSrc.
+        expect(fellBackToSrc([await lightboxChoice(page)]), 'the lightbox ignored its <source>').toEqual([]);
+
         // Scroll lock while open
         await expect.poll(() => page.evaluate(() => document.body.style.overflow)).toBe('hidden');
     });
@@ -250,8 +268,11 @@ test.describe('lightbox', () => {
         // order, so once the next photo's own image lands, a re-introduced fetch from
         // the same task has landed too.
         const next = homePhotos[1];
+        // The WebP, not the JPEG: the lightbox serves <source type="image/webp"> now, so
+        // the JPEG on the <img src> is the fallback and is never requested by a browser
+        // that took the source. Waiting on it here hung until the test timed out.
         const nextImageLoaded = page.waitForResponse((response) =>
-            decodeURIComponent(response.url()).endsWith(next.versions.large.jpg));
+            decodeURIComponent(response.url()).endsWith(next.versions.large.webp));
 
         await page.keyboard.press('ArrowRight');
         await nextImageLoaded;
@@ -558,6 +579,132 @@ test.describe('typography and stability', () => {
     });
 });
 
+/**
+ * The reduced-motion block is one blanket rule over `*`, and the single way it can go
+ * wrong is silent. `.gallery-item` is `opacity: 0` and only ever reaches 1 through
+ * `imageFadeIn` with `animation-fill-mode: forwards`; at `animation-duration: 0` the
+ * fill mode never applies and every photo on the site stays invisible — for exactly the
+ * users the rule exists to serve, with nothing logged and every other test still green.
+ * `0.01ms` is what keeps it working, so these assert the *rendered* opacity rather than
+ * the declaration that produced it.
+ */
+test.describe('reduced motion', () => {
+    test.beforeEach(async ({ page }) => {
+        await page.emulateMedia({ reducedMotion: 'reduce' });
+    });
+
+    /**
+     * What this block guards, and what it does not — both measured, because the obvious
+     * reading is wrong.
+     *
+     * The teeth are the `infinite` shimmer and `scroll-behavior`: delete either
+     * declaration from the blanket rule and the third test fails on both viewports.
+     * That is the vestibular hazard, and it is pinned.
+     *
+     * The opacity assertions are weaker than they look. The failure they were written
+     * for — a blanket rule blanking the site, since `.gallery-item` is `opacity: 0` and
+     * only reaches 1 through `imageFadeIn` with `animation-fill-mode: forwards` — cannot
+     * happen: `.gallery-item.loaded { opacity: 1 }` is added by JS on `img.onload`, and
+     * neither `.lightbox-img` nor `.lightbox-info` declares `opacity: 0` at rest, so
+     * every faded element has a non-animation path to visible. Checked directly:
+     * `animation-duration: 0s`, and even `animation: none !important`, both still leave
+     * the grid at opacity 1. `0.01ms` rather than `0` is therefore convention here, not
+     * load-bearing — it keeps `animationend` firing, which nothing on this site listens
+     * for. These assertions stay because they pin that coupling: remove the `.loaded`
+     * fallback while keeping the blanket rule and they are what notices.
+     *
+     * assertReduceIsActive is not decoration. `test.use({ reducedMotion: 'reduce' })`
+     * did not reach the page — `matchMedia` reported false inside the test — and most of
+     * these assertions pass without the emulation, so this block went green once while
+     * testing nothing at all.
+     */
+    async function assertReduceIsActive(page) {
+        const matches = await page.evaluate(() => matchMedia('(prefers-reduced-motion: reduce)').matches);
+        expect(matches, 'prefers-reduced-motion is not being emulated — every assertion here would pass vacuously')
+            .toBe(true);
+    }
+
+    const pages = [
+        { name: 'home', url: '/', photos: '#gallery-container .gallery-item', count: homePhotos.length },
+        ...seriesData.map((series) => ({
+            name: `series page: ${series.id}`,
+            url: `/${series.page}`,
+            photos: '.project-item .gallery-item',
+            count: series.photos.length
+        }))
+    ];
+
+    for (const { name, url, photos, count } of pages) {
+        test(`${name}: every photo is still visible with animations off`, async ({ page }) => {
+            await page.goto(url);
+            await assertReduceIsActive(page);
+            await expect(page.locator(photos)).toHaveCount(count);
+
+            // Every tile is loading="lazy", so on the mobile viewport the ones below the
+            // fold never decode and the assertion would time out rather than report
+            // anything. Step down the page so all of them are actually asked for.
+            await page.evaluate(async () => {
+                for (let y = 0; y < document.body.scrollHeight; y += window.innerHeight / 2) {
+                    window.scrollTo(0, y);
+                    await new Promise((resolve) => requestAnimationFrame(resolve));
+                }
+            });
+            // A photo that has not decoded yet is not evidence either way — the fade is
+            // what would hide it, and it has not run.
+            await expect.poll(() => page.evaluate((selector) => [...document.querySelectorAll(selector)]
+                .every((img) => img.complete && img.naturalWidth > 0), photos)).toBe(true);
+
+            // Polled, not read once: at 0.01ms the animation still needs a frame to tick
+            // past its duration before `forwards` shows up in the computed style, so an
+            // immediate read reports the `from` keyframe and fails a correct rule.
+            await expect.poll(() => page.evaluate((selector) => [...document.querySelectorAll(selector)]
+                .map((img) => getComputedStyle(img).opacity), photos),
+            { message: `${name}: photos left transparent under prefers-reduced-motion` })
+                .toEqual(Array(count).fill('1'));
+        });
+    }
+
+    test('the lightbox still reveals its photo and its metadata', async ({ page }) => {
+        await page.goto('/');
+        await assertReduceIsActive(page);
+        await page.locator('.gallery-item-wrapper').first().click();
+        await expect(page.locator('#lightbox')).toHaveClass(/active/);
+        await expect.poll(() => page.evaluate(() => {
+            const img = document.querySelector('#lightbox-img');
+            return img.complete && img.naturalWidth > 0;
+        })).toBe(true);
+
+        // Both carry .fade-in, which animates up from opacity 0 the way the grid does.
+        // Polled for the same reason as the grid: the 0.01ms animation needs a frame to
+        // tick past its duration before `forwards` reaches the computed style.
+        await expect.poll(() => page.evaluate(() => ({
+            img: getComputedStyle(document.querySelector('#lightbox-img')).opacity,
+            info: getComputedStyle(document.querySelector('.lightbox-info')).opacity
+        }))).toEqual({ img: '1', info: '1' });
+    });
+
+    test('the infinite shimmer stops and smooth scrolling is off', async ({ page }) => {
+        await page.goto('/');
+        await assertReduceIsActive(page);
+
+        // skeletonShimmer is the site's only `infinite` animation: capped it runs once,
+        // uncapped it never stops, which is the vestibular case the rule exists for.
+        const shimmer = await page.evaluate(() => {
+            const img = document.querySelector('#lightbox-img');
+            img.classList.add('is-loading');
+            const { animationName, animationIterationCount } = getComputedStyle(img);
+            img.classList.remove('is-loading');
+            return { animationName, animationIterationCount };
+        });
+        expect(shimmer.animationName, 'the shimmer rule stopped matching — this assertion no longer guards anything')
+            .toContain('skeletonShimmer');
+        expect(shimmer.animationIterationCount).toBe('1');
+
+        expect(await page.evaluate(() => getComputedStyle(document.documentElement).scrollBehavior))
+            .toBe('auto');
+    });
+});
+
 test.describe('page shell', () => {
     test('header anchors point at existing sections', async ({ page }) => {
         await page.goto('/');
@@ -732,6 +879,11 @@ for (const series of seriesData) {
             const lightbox = page.locator('#lightbox');
             await expect(lightbox).toHaveClass(/active/);
             await expect(page.locator('#lightbox-img')).toHaveAttribute('src', /^\.\.\/images\/optimized\/.*-large\.jpg$/);
+
+            // Same guard as the home page, on the rebased path: the <source> srcset is
+            // built from `../images/...` here, and a broken candidate would fall back to
+            // that JPEG with the attribute still looking correct.
+            expect(fellBackToSrc([await lightboxChoice(page)]), 'the series lightbox ignored its <source>').toEqual([]);
 
             // A series photo carries an editorial caption; the lightbox must use it
             // rather than falling back to the filename.

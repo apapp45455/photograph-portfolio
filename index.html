@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>大衛的攝影網站</title>
     <meta name="description" content="大衛的攝影作品集 — 街景、建築與旅途中的光。David Wang's photography portfolio." />
+    <link rel="canonical" href="https://apapp45455.github.io/photograph-portfolio/" />
     <!-- The largest above-the-fold element is the first series cover, but that <picture>
          is built by JS after two round trips, so the preload scanner never sees it and
          the request went out at 7.3s. imagesrcset/imagesizes must match what
@@ -23,14 +24,26 @@
     <!-- Open Graph / Social Sharing -->
     <meta property="og:title" content="大衛的攝影網站 - David's Photography" />
     <meta property="og:description" content="Capturing Moments, Creating Memories. View my portfolio of street and architectural photography." />
-    <meta property="og:image" content="https://apapp45455.github.io/photograph-portfolio/images/%E4%BF%A1%E7%BE%A9_101.jpg" />
+    <!-- Landscape on purpose: preview cards are 1.91:1, so a portrait frame gets
+         centre-cropped. 信義_101 is 4284x5712 and was losing its top and bottom. -->
+    <meta property="og:image" content="https://apapp45455.github.io/photograph-portfolio/images/optimized/%E4%BF%A1%E7%BE%A9_%E6%96%B0%E5%85%89%E4%B8%89%E8%B6%8A-large.jpg" />
+    <meta property="og:image:width" content="1920" />
+    <meta property="og:image:height" content="1440" />
+    <meta property="og:image:alt" content="台北信義區新光三越" />
     <meta property="og:url" content="https://apapp45455.github.io/photograph-portfolio/" />
     <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="大衛的攝影網站" />
+    <meta property="og:locale" content="zh_TW" />
+    <meta name="twitter:card" content="summary_large_image" />
     <!-- Cloudflare Web Analytics -->
     <script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "045961f8d9e5443186eac62ce47ae6ea"}'></script>
     <!-- End Cloudflare Web Analytics -->
   </head>
   <body>
+    <!-- First focusable thing on the page: lets a keyboard user past the nav.
+         Off-screen until focused — see .skip-link in style.css. -->
+    <a class="skip-link" href="#main">Skip to content</a>
+
     <!-- Site Header -->
     <header class="site-header">
       <a href="#gallery-container" class="site-title">David<span>Photography</span></a>
@@ -42,7 +55,7 @@
         <a href="#contact">Contact</a>
       </nav>
     </header>
-    <main>
+    <main id="main" tabindex="-1">
       <!-- 專題（系列作品）— 卡片由 js/series.js 依 js/series-data.json 產生 -->
       <section id="series" class="series-section">
         <h2 class="section-heading">Series</h2>
@@ -95,13 +108,19 @@
       <button type="button" class="nav-btn prev-btn" id="prev-btn" aria-label="Previous photo">&#10094;</button>
 
       <div class="lightbox-content-wrapper">
-        <!-- src is set by js/lightbox.js when a photo is opened -->
-        <!-- [html-validate-disable-next element-required-attributes -- src injected at runtime] -->
-        <img
-          class="lightbox-img"
-          id="lightbox-img"
-          alt="Enlarged view"
-        />
+        <picture>
+          <!-- srcset and src are both set by js/lightbox.js when a photo is opened,
+               the source first: assigning src while the WebP candidate is still empty
+               makes the browser fetch the JPEG and then re-select. Same trap as
+               GalleryItemRenderer.createPicture, from the other direction. -->
+          <source id="lightbox-webp" type="image/webp" />
+          <!-- [html-validate-disable-next element-required-attributes -- src injected at runtime] -->
+          <img
+            class="lightbox-img"
+            id="lightbox-img"
+            alt="Enlarged view"
+          />
+        </picture>
         <div class="lightbox-info">
           <p class="lightbox-caption" id="lightbox-caption"></p>
           <div class="lightbox-metadata" id="lightbox-metadata"></div>

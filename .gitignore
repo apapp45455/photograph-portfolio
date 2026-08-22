@@ -6,6 +6,8 @@ test-results/
 playwright-report/
 blob-report/
 .lighthouseci/
+lighthouse.json
+graphify-out/
 
 # OS noise
 .DS_Store

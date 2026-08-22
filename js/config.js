@@ -5,6 +5,7 @@ export const CONFIG = {
     SERIES_SECTION: "#series",
     LIGHTBOX: "#lightbox",
     LIGHTBOX_IMG: "#lightbox-img",
+    LIGHTBOX_WEBP: "#lightbox-webp",
     LIGHTBOX_CAPTION: "#lightbox-caption",
     LIGHTBOX_METADATA: "#lightbox-metadata",
     CLOSE_BTN: ".close-btn",

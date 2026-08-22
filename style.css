@@ -27,9 +27,9 @@
   --bg-color: #faf8f3; /* Warm paper white — Japanese minimal base */
   --card-bg: #fff;
   --text-primary: #4a443d; /* Soft warm charcoal */
-  --text-secondary: #9a9085; /* Muted warm grey */
+  --text-secondary: #786e63; /* Muted warm grey — darkened to 4.70:1 on --bg-color (WCAG AA) */
   --border-soft: #ece7dd; /* Faint warm divider */
-  --accent-color: #b08d4f; /* Antique foil gold (燙金) */
+  --accent-color: #866b3c; /* Antique foil gold (燙金) — darkened to 4.73:1 on --bg-color (WCAG AA) */
   --accent-soft: #c9b083;
 
   /* Cormorant Garamond is fetched; the CJK faces are whatever the device already has
@@ -73,6 +73,34 @@ h3 {
   font-family: var(--font-heading);
   font-weight: 500;
   margin: 0;
+}
+
+/* Skip link: off-screen until focused, never display/visibility:hidden so it stays
+   in the tab order. z-index clears .site-header's 1000. Focus ring matches the
+   :focus-visible convention below; :focus (not :focus-visible) does the reveal so it
+   can never be focused while off-screen. */
+.skip-link {
+  position: fixed;
+  top: 0.5rem;
+  left: 0.5rem;
+  z-index: 1100;
+  transform: translateY(-300%);
+  padding: 0.75rem 1.25rem;
+  background: var(--card-bg);
+  border: 1px solid var(--border-soft);
+  border-radius: 4px;
+  color: var(--text-primary);
+  font-family: var(--font-body);
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  text-decoration: none;
+}
+
+.skip-link:focus {
+  transform: none;
+  outline: 2px solid var(--accent-color);
+  outline-offset: 3px;
 }
 
 /* Site Header — slim editorial band */
@@ -705,6 +733,14 @@ footer {
   animation: lightboxFadeIn 0.3s ease-out;
 }
 
+/* <picture> is an inline box, so wrapping the lightbox img made the *picture* the
+   flex item: measured 48px wider than the photo plus a baseline strut, which pushed
+   the image 40px left and grew the dialog ~9px. display:contents hands the layout back
+   to the <img> and does not disturb <source> selection. */
+.lightbox-content-wrapper picture {
+  display: contents;
+}
+
 .lightbox-content-wrapper {
   position: relative;
   max-width: 90vw;
@@ -965,5 +1001,20 @@ footer {
 
   .next-btn {
     right: 10px;
+  }
+}
+
+/* WCAG 2.3.3 / vestibular safety. Blanket rule on purpose: enumerating every keyframe
+   rots the moment one is added. 0.01ms rather than 0 keeps animation-fill-mode:forwards
+   applying, so .gallery-item (opacity:0 + imageFadeIn) and .lightbox-img.fade-in still
+   land at opacity 1 instead of staying invisible. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }
