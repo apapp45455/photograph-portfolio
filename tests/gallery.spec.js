@@ -1,6 +1,19 @@
 const { test, expect } = require('@playwright/test');
 const galleryData = require('../js/gallery-data.json');
 const seriesData = require('../js/series-data.json');
+const fs = require('fs');
+const path = require('path');
+
+/** The characters image-tools/font-charset.txt declares — build-font.js subsets to exactly these. */
+function subsetCharacters() {
+    const text = fs.readFileSync(path.join(__dirname, '..', 'image-tools', 'font-charset.txt'), 'utf8');
+    const chars = new Set();
+    for (const line of text.split('\n')) {
+        if (line.startsWith('#')) continue;
+        for (const char of line) chars.add(char);
+    }
+    return chars;
+}
 
 /** The home grid shows everything that is not part of a series; series pages show the rest. */
 const homePhotos = galleryData.filter((entry) => !entry.series);
@@ -395,6 +408,128 @@ test.describe('lightbox', () => {
         await expect(lightbox).toHaveClass(/active/);
         await lightbox.click({ position: { x: 5, y: 5 } }); // backdrop, outside the content wrapper
         await expect(lightbox).not.toHaveClass(/active/);
+    });
+});
+
+test.describe('typography and stability', () => {
+    /**
+     * Cormorant Garamond is self-hosted and cut to image-tools/font-charset.txt, so a
+     * character the site draws but that file does not list is a silent defect: the
+     * browser takes that one glyph from the next family in the stack and the heading
+     * renders in two typefaces with nothing logged.
+     *
+     * The comparison is made here in Node against the charset file, not in the page
+     * with document.fonts.check(). That API answers from the @font-face unicode-range,
+     * which still spans all of ASCII — it returned true for a character deliberately
+     * cut out of the built woff2, so a check built on it passes on a broken font.
+     *
+     * Which elements to look at is still asked of the browser rather than derived from
+     * style.css: a hand-kept list of --font-heading selectors would drift the first
+     * time someone adds one. CJK is excluded by design — the stack hands those to the
+     * device's own face, so they are meant to come from PingFang TC, not the subset.
+     */
+    /**
+     * The in-page assertion below only sees what the two pages it visits paint, and it
+     * opens exactly one lightbox — so of the 18 filenames in the manifest, one reaches
+     * it. The filename is the input to this face that changes every time a photo is
+     * added (the lightbox caption is formatPhotoTitle(filename)), so it is the one that
+     * most needs covering. This reads the manifests directly instead, no browser
+     * involved. Only the fields that reach --font-heading: `period` and `summary`
+     * render in the body face and would demand glyphs the subset need not carry.
+     */
+    test('every photo title and series title is in the charset', () => {
+        const declared = subsetCharacters();
+        const text = [
+            ...galleryData.map((entry) => entry.filename.replace(/\.[^.]+$/, '').replace(/_/g, ' ')),
+            ...seriesData.map((series) => series.title)
+        ].join('');
+        const missing = [...new Set(text)].filter((char) => !/\s/.test(char)
+            && char.codePointAt(0) < 0x2e80 && !declared.has(char));
+        expect(missing, `add to image-tools/font-charset.txt, then run npm run build:font: ${JSON.stringify(missing)}`)
+            .toEqual([]);
+    });
+
+    for (const { name, url } of [{ name: 'home', url: '/' }, { name: 'series', url: '/projects/japan.html' }]) {
+        test(`${name}: every character drawn in Cormorant is in the charset`, async ({ page }) => {
+            await page.goto(url);
+            await expect(page.locator('.gallery-item-wrapper').first()).toBeVisible();
+            // The lightbox caption is a heading too, and its text comes from filenames.
+            await page.locator('.gallery-item-wrapper picture').first().click();
+            await expect(page.locator('#lightbox')).toHaveClass(/active/);
+
+            const drawn = await page.evaluate(() => {
+                const chars = new Set();
+                for (const el of document.querySelectorAll('*')) {
+                    if (!/^["']?Cormorant/.test(getComputedStyle(el).fontFamily)) continue;
+                    for (const node of el.childNodes) {
+                        if (node.nodeType !== Node.TEXT_NODE) continue;
+                        for (const char of node.textContent) chars.add(char);
+                    }
+                }
+                return [...chars];
+            });
+            expect(drawn.length).toBeGreaterThan(10);
+
+            const declared = subsetCharacters();
+            const missing = drawn.filter((char) => !/\s/.test(char)
+                && char.codePointAt(0) < 0x2e80 && !declared.has(char));
+            expect(missing, `add to image-tools/font-charset.txt, then run npm run build:font: ${JSON.stringify(missing)}`)
+                .toEqual([]);
+        });
+    }
+
+    /**
+     * The series cards and the grid are inserted by JS, so everything below them moves
+     * on arrival unless .series-list has reserved the right height. That reservation
+     * used to cover the cover image only, which is exact side by side and 197px short
+     * of a 572px card once the layout stacks — 0.101 of mobile CLS, past the 0.1 that
+     * counts as good, and invisible to a desktop-only check.
+     *
+     * The manifests are delayed deliberately. Served from localhost they arrive before
+     * the first paint, so the insertion produces no *shift* at all and the assertion
+     * passes with the reservation removed entirely — which is exactly how this test
+     * failed to have any teeth the first time it was written.
+     *
+     * The reservation is a measured constant, so a series with a much longer summary
+     * will undershoot it again. This is the assertion that says so.
+     */
+    test('nothing shifts as the series cards and the grid arrive', async ({ page }) => {
+        await page.route('**/js/*-data.json', async (route) => {
+            await new Promise((resolve) => setTimeout(resolve, 600));
+            return route.continue();
+        });
+        // The font needs the same treatment, and it is this repo's problem now that it
+        // is served from here: font-display: swap re-lays out every heading when it
+        // lands, which from localhost is before the first paint.
+        await page.route('**/*.woff2', async (route) => {
+            await new Promise((resolve) => setTimeout(resolve, 600));
+            return route.continue();
+        });
+        await page.addInitScript(() => {
+            window.__cls = 0;
+            new PerformanceObserver((list) => {
+                for (const entry of list.getEntries()) if (!entry.hadRecentInput) window.__cls += entry.value;
+            }).observe({ type: 'layout-shift', buffered: true });
+        });
+
+        // The reservation has three bands and playwright.config.js runs two viewports,
+        // 1280 and 412 — so the constant covering 481-1024px, every tablet and every
+        // phone in landscape, is the one no project would ever exercise. Widths are
+        // driven from inside the test for that reason.
+        for (const [width, height] of [[320, 568], [430, 932], [768, 1024], [1024, 768], [1280, 800]]) {
+            await page.setViewportSize({ width, height });
+            await page.goto('/');
+            // Paint the shell first, or there is no "before" for a shift to measure from.
+            await expect(page.locator('.section-heading').first()).toBeVisible();
+            await expect(page.locator('.series-card')).toHaveCount(seriesData.length);
+            await expect(page.locator('#gallery-container .gallery-item-wrapper'))
+                .toHaveCount(homePhotos.length);
+            await page.waitForTimeout(1200);
+
+            const cls = await page.evaluate(() => window.__cls);
+            expect(cls, `${width}px: cumulative layout shift ${cls.toFixed(4)} — check --series-card-body in style.css`)
+                .toBeLessThan(0.05);
+        }
     });
 });
 

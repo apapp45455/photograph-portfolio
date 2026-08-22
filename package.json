@@ -6,6 +6,7 @@
   "scripts": {
     "compress": "node image-tools/compress.js",
     "build:gallery": "node image-tools/generate-gallery.js",
+    "build:font": "node image-tools/build-font.js",
     "check:gallery": "node scripts/check-gallery.js",
     "check:gallery:deep": "node scripts/check-gallery.js --deep",
     "check:generated": "bash scripts/check-generated.sh",
@@ -39,6 +40,7 @@
     "globals": "^17.11.0",
     "html-validate": "^11.7.0",
     "stylelint": "^17.14.1",
-    "stylelint-config-standard": "^40.0.0"
+    "stylelint-config-standard": "^40.0.0",
+    "subset-font": "^2.5.0"
   }
 }
