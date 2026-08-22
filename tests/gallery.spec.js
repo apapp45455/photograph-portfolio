@@ -40,7 +40,7 @@ function metadataValue(metadata, label) {
 /**
  * `currentSrc` is what the browser actually committed to, as opposed to the srcset
  * *attribute*, which looked perfect throughout the bug this guards against. Anything
- * not ending in .webp means both <source> elements were discarded and the <img src>
+ * not ending in .webp means every WebP candidate was unusable and the <img src>
  * fallback won.
  *
  * The URL is compared while still percent-encoded: the extension survives encoding
