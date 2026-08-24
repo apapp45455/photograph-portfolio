@@ -1,4 +1,14 @@
-import { formatPhotoTitle, getLargestVersionUrl, toSrcsetUrl } from "./utils.js";
+import { formatPhotoTitle, getLargestVersionUrl, getVersionSrcset } from "./utils.js";
+
+/**
+ * An upper bound on the rendered width, not an exact one: `.lightbox-img` is also
+ * capped by max-height (50vh stacked, 80vh side by side), so a landscape photo is
+ * often narrower than this. Over-stating it can only make the browser pick one tier
+ * up, which costs bytes and never quality — understating it would show a soft photo
+ * at full screen, which is the whole point of the lightbox. Tracks the two widths in
+ * style.css: `max-width: 100%` of a 90vw wrapper below 900px, `max-width: 70vw` above.
+ */
+const LIGHTBOX_SIZES = "(max-width: 900px) 90vw, 70vw";
 
 export class LightboxView {
   constructor(elements, classes, pageBody = document.body) {
@@ -45,12 +55,17 @@ export class LightboxView {
     this.applyReservedMediaSize(item);
     // The <source> is filled first, and only then the <img src>: the img is already in
     // the DOM, so setting src against a stale/empty source starts a JPEG fetch the WebP
-    // then supersedes. Space and comma are srcset's own delimiters, so a filename
-    // carrying either would make this candidate unparseable and the JPEG would win
-    // silently — `images/Canon R50特寫.jpg` is exactly that case, which is why the
-    // escaping is toSrcsetUrl's and not a second copy of the same rule.
-    const webp = getLargestVersionUrl(item.versions, "webp");
-    this.elements.webpSource.srcset = webp ? toSrcsetUrl(webp) : "";
+    // then supersedes. getVersionSrcset escapes the space and comma that are srcset's
+    // own delimiters — `images/Canon R50特寫.jpg` is why that is not written twice.
+    //
+    // This offered one candidate, the 1920px one, at every viewport: a phone displaying
+    // the photo 351px wide took 276KB where 102KB covers it, and paging the five-photo
+    // japan series cost 2003KB against 767KB. src stays on the largest as the fallback
+    // for a browser that ignores srcset entirely.
+    this.elements.webpSource.srcset = getVersionSrcset(item.versions, "webp");
+    this.elements.webpSource.sizes = LIGHTBOX_SIZES;
+    this.elements.img.srcset = getVersionSrcset(item.versions, "jpg");
+    this.elements.img.sizes = LIGHTBOX_SIZES;
     this.elements.img.src = getLargestVersionUrl(item.versions, "jpg") || item.original;
     // Series photos already carry an editorial caption; fall back to the filename only
     // for the home grid, which has none.
