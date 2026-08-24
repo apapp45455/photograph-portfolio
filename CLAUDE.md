@@ -190,9 +190,16 @@ The `<picture>` element serves WebP with JPEG fallback; `sizes` attribute target
 
 Two traps that cost time there:
 
-- `getLargestVersionUrl` returns a **raw** URL, and srcset's delimiters are space and comma — so assigning it straight to `source.srcset` makes the candidate unparseable for `images/Canon R50特寫.jpg` and the JPEG wins silently. `toSrcsetUrl` is exported from `utils.js` for exactly this; do not write a second copy of the escaping rule.
+- The lightbox builds its candidates with `getVersionSrcset`, which escapes the space and comma that are srcset's own delimiters. It used to assign `getLargestVersionUrl`'s **raw** URL straight to `source.srcset`, which made the candidate unparseable for `images/Canon R50特寫.jpg` and handed the photo to the JPEG silently. `getLargestVersionUrl` survives only on the `<img src>` fallback, where an attribute value is not tokenised and no escaping applies.
 - Wrapping the lightbox `<img>` in `<picture>` makes the *picture* the flex item of `.lightbox-content-wrapper` — measured 48px wider than the photo, plus a baseline strut, which shifted the image 40px left and grew the dialog ~9px. `.lightbox-content-wrapper picture { display: contents }` hands layout back to the `<img>` and does not disturb `<source>` selection. Nothing in the suite catches this; it was found by measuring the rects.
 
-**Not every surface offers every tier.** The home grid stops at `medium` (`CONFIG.GRID_TIERS` in `js/config.js`): a tile is 100vw on a phone, and a 3× screen computes 390 × 3 = 1170, clears 1080 and would otherwise take the 1920px file for a 390px box. Series pages (`ProjectItemRenderer`, whose `full` span really is ~1060 px wide) and the lightbox (`getLargestVersionUrl`, now for both formats) still reach `large`.
+**Not every surface offers every tier.** The home grid stops at `medium` (`CONFIG.GRID_TIERS` in `js/config.js`): a tile is 100vw on a phone, and a 3× screen computes 390 × 3 = 1170, clears 1080 and would otherwise take the 1920px file for a 390px box. Series pages (`ProjectItemRenderer`, whose `full` span really is ~1060 px wide) still reach `large`.
+
+**The lightbox picks per viewport, and only reaches `large` on a hi-DPI desktop.** It offered exactly one candidate — the 1920px file — at every viewport until it was given a real `srcset` plus `LIGHTBOX_SIZES` in `js/lightbox.js`: a phone showing the photo 351px wide took 276KB where 102KB covers it, and paging the five-photo japan series cost 2003KB against 767KB. `LIGHTBOX_SIZES` is an upper bound rather than an exact width, because `.lightbox-img` is capped by `max-height` too (50vh stacked, 80vh side by side) and a `sizes` attribute cannot express "whichever of these binds". Over-stating it costs at most one tier; under-stating it shows a soft photo at full screen.
+
+Two things this broke, both in the same test:
+
+- `renders EXIF from the manifest, fetching nothing` synced on the next photo's `large.webp` arriving over the network. Pinning a tier there turns any future tier change into a timeout in a test about EXIF.
+- With the tier no longer pinned, that navigation issues **no request at all** — the home grid has already loaded the same URL in the same document, so the browser reuses the decoded image. `Network.setCacheDisabled` does not change this; it is not the HTTP cache. The test now syncs on the DOM reaching photo #2 instead.
 
 WebP is encoded at `WEBP_QUALITY: 75` / `WEBP_EFFORT: 6`, separately from `JPEG_QUALITY: 80` — sharing one number produced WebP files *larger* than the mozjpeg fallback for 10 of 54 derivatives, so `<picture>` was handing over the heavier candidate.

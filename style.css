@@ -870,7 +870,10 @@ footer {
   width: 60px; /* Align labels */
 }
 
-/* Responsive: Stack on smaller screens */
+/* Responsive: Stack on smaller screens.
+   LIGHTBOX_SIZES in js/lightbox.js branches on this same 900px and describes both
+   sides of it — retune the breakpoint here and that string has to move with it, or
+   the lightbox picks its tier from the wrong branch. Nothing checks the pair. */
 @media (max-width: 900px) {
   .lightbox-content-wrapper {
     flex-direction: column;

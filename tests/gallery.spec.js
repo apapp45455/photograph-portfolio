@@ -76,16 +76,28 @@ function fellBackToSrc(chosen) {
 }
 
 /**
- * Waits for the lightbox image to finish decoding before reading currentSrc: the
+ * Waits for the lightbox image to finish decoding, then reads what it settled on. The
  * selection is made against the <source> that showItem fills in the same task, so
  * reading too early can catch the element between the two assignments.
+ *
+ * One read, not a poll followed by a second evaluate: the second read is unguarded, so
+ * it can describe a state that was never validated — and if currentSrc is momentarily
+ * empty the caller gets undefined where it expected a tier.
+ *
+ * `needed` waits out .is-loading too. That class sets min-width: min(70vw, 900px), so
+ * measuring through it reports the skeleton's box rather than the photo's.
  */
 async function lightboxChoice(page) {
-    const img = page.locator('#lightbox-img');
-    await expect
-        .poll(() => img.evaluate((el) => el.complete && el.naturalWidth > 0), { timeout: 30_000 })
-        .toBe(true);
-    return img.evaluate((el) => ({ alt: el.alt, src: el.currentSrc }));
+    const settled = await page.waitForFunction(() => {
+        const img = document.querySelector('#lightbox-img');
+        if (!img.complete || !img.naturalWidth || img.classList.contains('is-loading')) return null;
+        return {
+            alt: img.alt,
+            src: img.currentSrc,
+            needed: Math.round(img.getBoundingClientRect().width * devicePixelRatio)
+        };
+    }, null, { timeout: 30_000 });
+    return settled.jsonValue();
 }
 
 function collectConsoleErrors(page) {
@@ -219,6 +231,49 @@ test.describe('gallery grid', () => {
 });
 
 test.describe('lightbox', () => {
+    /**
+     * The lightbox offered a single candidate — the 1920px one — at every viewport, so
+     * a phone showing the photo 351px wide downloaded 276KB where 102KB covers it, and
+     * paging the five-photo japan series cost 2003KB instead of 767KB. Nothing noticed:
+     * the WebP assertions only check that the chosen file *is* a WebP, not which tier.
+     *
+     * Both directions are asserted. Too small is the worse failure — a soft photo at
+     * full screen defeats the point of opening it — but too large is the bug that was
+     * actually shipped. The upper bound is "not the widest tier", which holds at both
+     * viewports the suite runs; a hi-DPI desktop would legitimately reach it.
+     */
+    test('loads a candidate that fits the viewport, not always the widest', async ({ page }) => {
+        await page.goto('/');
+        await page.locator('.gallery-item-wrapper picture').first().click();
+        await expect(page.locator('#lightbox')).toHaveClass(/active/);
+
+        // naturalWidth is not the file's width once srcset carries w descriptors — the
+        // browser reports it density-corrected, so it comes back in CSS pixels. The
+        // manifest is the only place that knows how wide each tier actually is.
+        const chosen = await lightboxChoice(page);
+        const file = decodeURIComponent(chosen.src).split('/').pop();
+
+        // naturalWidth is not the file's width once srcset carries w descriptors — the
+        // browser reports it density-corrected, so it comes back in CSS pixels. The
+        // manifest is the only place that knows how wide each tier actually is.
+        const tiers = Object.values(homePhotos[0].versions);
+        const served = tiers.find((version) => decodeURIComponent(version.webp).endsWith(file));
+        expect(served, `${file} is not a tier of ${homePhotos[0].filename}`).toBeTruthy();
+
+        expect(served.width, `${file} is ${served.width}px for a box needing ${chosen.needed}px`)
+            .toBeGreaterThanOrEqual(chosen.needed);
+
+        // Only meaningful if there is a tier above the one that fits. generate-gallery
+        // clamps each tier to the source width, so a photo narrower than 1080 has
+        // medium and large at the same width and nothing left on the table — and
+        // homePhotos[0] is positional, so which photo this is changes as photos are added.
+        const widest = Math.max(...tiers.map((version) => version.width));
+        test.skip(tiers.filter((version) => version.width === widest).length > 1,
+            `${homePhotos[0].filename} is too small to have a distinct widest tier`);
+        expect(served.width, `${file} is the widest tier (${widest}px) for a box needing ${chosen.needed}px`)
+            .toBeLessThan(widest);
+    });
+
     test('opens on click with the large image and a caption', async ({ page }) => {
         await page.goto('/');
         await page.locator('.gallery-item-wrapper').first().click();
@@ -264,18 +319,29 @@ test.describe('lightbox', () => {
 
         // Proving a request did *not* happen needs something that did to sync against:
         // the grid locator is already visible from photo #1, so it resolves on the first
-        // poll and offenders could be read before CDP delivered anything. CDP preserves
-        // order, so once the next photo's own image lands, a re-introduced fetch from
-        // the same task has landed too.
+        // poll and offenders could be read before the request event was delivered.
+        //
+        // That used to be the next photo's image arriving over the network. It no longer
+        // arrives at all: the lightbox picks a tier per viewport now, and the grid has
+        // already loaded that same URL in this document, so the browser reuses the
+        // decoded image and issues nothing. Waiting on a response hung until the test
+        // timed out — a timeout in the EXIF test, for a change about image sizes.
+        //
+        // So sync on the DOM reaching photo #2, then on a request of our own. A fixed
+        // sleep would have let a re-introduced fetch land a moment late and still pass,
+        // silently; the browser dispatches in order, so once a request issued *after*
+        // the navigation has come back, anything the navigation itself started has
+        // already been seen.
         const next = homePhotos[1];
-        // The WebP, not the JPEG: the lightbox serves <source type="image/webp"> now, so
-        // the JPEG on the <img src> is the fallback and is never requested by a browser
-        // that took the source. Waiting on it here hung until the test timed out.
-        const nextImageLoaded = page.waitForResponse((response) =>
-            decodeURIComponent(response.url()).endsWith(next.versions.large.webp));
+        const nextCandidates = Object.values(next.versions).map((version) => version.webp);
 
         await page.keyboard.press('ArrowRight');
-        await nextImageLoaded;
+        await expect.poll(async () => page.evaluate(() => decodeURIComponent(
+            document.querySelector('#lightbox-img').currentSrc)), { timeout: 15_000 })
+            .toMatch(new RegExp(nextCandidates.map((url) => url.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')));
+        const settled = page.waitForResponse((response) => response.url().includes('after-nav'));
+        await page.evaluate(() => fetch('js/gallery-data.json?after-nav'));
+        await settled;
 
         expect(offenders).toEqual([]);
     });
