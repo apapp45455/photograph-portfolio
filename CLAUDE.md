@@ -70,7 +70,7 @@ npm run build:gallery -- --force   # re-encode derivatives that already exist
 `js/gallery-data.json` → `GalleryDataSource.load()` → `Gallery.render()` → DOM grid → click → `Lightbox` opens and `ExifMetadataReader` formats the EXIF already carried on the manifest entry. Nothing is fetched for metadata. `Gallery` takes a `select` function that narrows/reorders the manifest for the page it is on: the home page passes `selectUngrouped`, a series page passes `selectSeriesPhotos(series)`. Whatever `select` returns is both what renders and what the lightbox pages through.
 
 **Key files:**
-- `index.html` — home page; slim sticky header, series cards, then the masonry grid of ungrouped photos; lightbox DOM is static. Its `<head>` also carries a hand-written `<link rel="preload" as="image">` for the **first series cover** — the LCP element, which `SeriesCardRenderer` only builds after two round trips, so the preload scanner would never see it. Its `imagesrcset`/`imagesizes` are a hand-maintained copy of what `createCover` computes and must stay byte-identical, or the browser fetches both candidates; `checkHomePreload` in `scripts/check-gallery.js` is what holds them together
+- `index.html` — home page; slim sticky header, series cards, then the masonry grid of ungrouped photos; lightbox DOM is static. The **first series card is hand-written into `.series-list`**, not left to JS: it holds the LCP element, and `SeriesShowcase` only builds its copy once `main.js`'s four-deep import chain has resolved `series-data.json`. This started as a `<link rel="preload" as="image">` for the cover alone, which fixed the *download* but not the render — the bytes then sat idle ~800ms waiting for an `<img>` to exist. The whole card in the HTML fixes both and makes the preload redundant. It is a hand-maintained copy of `SeriesCardRenderer`'s output and must stay byte-identical: drift in the srcset/sizes makes the browser fetch a second file the moment `replaceChildren` swaps the card, and drift in the copy shows stale text until it does. `checkHomeCover` in `scripts/check-gallery.js` holds all of it together
 - `projects/japan.html` — a series page; hero + intro are hand-written, the photo grid is generated
 - `style.css` — all styles (Japanese-light theme, Cormorant Garamond uppercase headings, responsive masonry grid, series cards, series-page editorial grid, lightbox). Also carries the `@font-face` for the self-hosted font and the `.series-list` height reservation
 - `fonts/` — `cormorant-garamond-subset.woff2` (13KB) plus its OFL licence. **Generated**; rebuild with `npm run build:font`, never hand-edit
@@ -84,7 +84,7 @@ npm run build:gallery -- --force   # re-encode derivatives that already exist
 
 **Frontend module structure (`js/`):**
 - `config.js` — `CONFIG` (selectors, paths, class names, breakpoints, event names)
-- `utils.js` — shared helpers (`formatPhotoTitle`, `createElement`, srcset builders) + JSDoc typedefs. `getVersionSrcset` percent-encodes spaces and commas in every candidate URL: those two characters are srcset's own delimiters, so a filename containing one makes that candidate unparseable and the browser **drops it**. The drop is per candidate, not per element — but every tier of a photo is named after the same file, so one space invalidates *all* of them, leaving both `<source>`s empty and falling through to the `<img src>` thumb. `images/Canon R50特寫.jpg` therefore rendered at 400px on every viewport for as long as it had been on the site, with a perfectly correct-looking `srcset` attribute. CJK is deliberately left raw so the manifest and `index.html`'s preload stay readable; `%` is left raw too, which keeps the encoding idempotent
+- `utils.js` — shared helpers (`formatPhotoTitle`, `createElement`, srcset builders) + JSDoc typedefs. `getVersionSrcset` percent-encodes spaces and commas in every candidate URL: those two characters are srcset's own delimiters, so a filename containing one makes that candidate unparseable and the browser **drops it**. The drop is per candidate, not per element — but every tier of a photo is named after the same file, so one space invalidates *all* of them, leaving both `<source>`s empty and falling through to the `<img src>` thumb. `images/Canon R50特寫.jpg` therefore rendered at 400px on every viewport for as long as it had been on the site, with a perfectly correct-looking `srcset` attribute. CJK is deliberately left raw so the manifest and `index.html`'s hand-written cover card stay readable; `%` is left raw too, which keeps the encoding idempotent
 - `gallery.js` — `GalleryDataSource` (fetches `gallery-data.json`, rebases asset paths for pages served from a subdirectory), `GalleryItemRenderer` (builds `<picture>` with WebP + JPEG `srcset`), `Gallery` (renders grid, delegates clicks via custom `gallery:open` event)
 - `series.js` — `SeriesDataSource`, `SeriesCardRenderer` + `SeriesShowcase` (home-page entry cards), `ProjectItemRenderer` (`<figure>` + caption + span), and the `selectUngrouped` / `selectSeriesPhotos` selectors
 - `page.js` — `mountLightbox()`, shared by both entry points (the lightbox DOM is identical on every page)
@@ -113,6 +113,34 @@ The third row is the one that matters: **removing the extra origin and its round
 Adding a photo or a series whose title uses a character outside `image-tools/font-charset.txt` makes that one glyph render in the next family in the stack — a heading in two typefaces, with nothing logged. The e2e suite compares every character actually drawn in a Cormorant element against the charset file and fails naming the character; the fix is to add it and re-run `npm run build:font`.
 
 `document.fonts.check()` cannot be used for that comparison. It answers from the `@font-face` `unicode-range`, which still spans all of ASCII, so it reports a character as present after it has been cut out of the woff2.
+
+## The Cloudflare beacon is not the latency (measured)
+
+`<script defer src="https://static.cloudflareinsights.com/beacon.min.js">` sits in the `<head>` of both
+pages and is discovered by the preload scanner at the same moment as the LCP cover, so it looks like an
+obvious thing to defer or drop. It is not. Deployed site, Slow 4G, 4 paired runs, median LCP:
+
+| Variant | LCP | Cover done |
+|---|---|---|
+| As shipped | 2998 ms | 1144 ms |
+| Beacon removed entirely | 2984 ms | 1127 ms |
+| Beacon injected on `load` | 3092 ms | 1134 ms |
+
+Removing it outright buys 14 ms — noise. Injecting it on `load` is *worse*, because LCP lands after
+`load` here and the injection adds main-thread work right at that point.
+
+The reason the beacon costs nothing is the same reason the modulepreload experiment below failed in the
+other direction: **the cover was never the binding constraint.** Its bytes finished ~800 ms before LCP
+and then sat idle, because the `<img>` that displays them did not exist until `js/main.js` →
+config/page/gallery/series → lightbox/exif/utils → `series-data.json` resolved — four sequential round
+trips for ~15 KB. Handing the cover 14 KB more bandwidth cannot move a render that is waiting on a
+manifest.
+
+That gap is what **hand-writing the first series card into `index.html`** closes, and it is where the
+820 ms actually was. Same method, 5 paired runs, median LCP **3004 ms → 2172 ms (−832 ms)**, winning
+every run with no overlap in range; CLS 0 → 0.0001, and the cover is still requested exactly once —
+`replaceChildren` swaps in an identical `<picture>`, so nothing is re-fetched. The measurement was
+re-run against the committed file, not the injected copy. Numbers above the table predate that change.
 
 ## Preloading the module graph does not work here (measured twice)
 
@@ -158,7 +186,7 @@ Getting this wrong is invisible locally: served from localhost the manifests arr
 | Job | What it guards |
 |-----|----------------|
 | `lint` | ESLint (`eslint.config.js`: `js/` = browser ESM, `image-tools/`+`scripts/` = Node CJS), Stylelint (`.stylelintrc.json`), html-validate (`.htmlvalidate.json`) |
-| `gallery` | `scripts/check-gallery.js --deep` (files, dimensions, orphans, the series rules the generator does not enforce, the shape of each entry's `exif` block, plus two couplings that live outside the manifest: `checkHomePreload` ties `index.html`'s cover preload to `SeriesCardRenderer.createCover`, and `checkGridTiers` ties `CONFIG.GRID_TIERS` to the generator's `IMAGE_SIZES` — in both directions, so the list can neither be renamed out of step nor grow `large` back) **plus `npm run check:generated`, which re-runs `generate-gallery.js` and diffs the result** (the same script `npm test` runs, so the local suite is not green on the one change the gate exists to catch) — that diff, not a hand-written comparison, is what catches a `series.json` edit committed without a rebuild. It also rejects `#`, `?` or `%` in a source filename: those are the URL's own delimiters, so unlike a space they cannot be fixed by escaping at render time — `img.src` and the cover preload are written raw on purpose |
+| `gallery` | `scripts/check-gallery.js --deep` (files, dimensions, orphans, the series rules the generator does not enforce, the shape of each entry's `exif` block, plus two couplings that live outside the manifest: `checkHomeCover` ties `index.html`'s hand-written first series card to `SeriesCardRenderer` — image attributes *and* copy, and `checkGridTiers` ties `CONFIG.GRID_TIERS` to the generator's `IMAGE_SIZES` — in both directions, so the list can neither be renamed out of step nor grow `large` back) **plus `npm run check:generated`, which re-runs `generate-gallery.js` and diffs the result** (the same script `npm test` runs, so the local suite is not green on the one change the gate exists to catch) — that diff, not a hand-written comparison, is what catches a `series.json` edit committed without a rebuild. It also rejects `#`, `?` or `%` in a source filename: those are the URL's own delimiters, so unlike a space they cannot be fixed by escaping at render time — `img.src` and the hand-written cover card are written raw on purpose |
 | `e2e` | `tests/gallery.spec.js` on desktop + mobile viewports: home grid count matches the ungrouped manifest entries, all images decode, every referenced asset returns 200, lightbox open/nav/close, the metadata panel matching the photo on screen (asserted per row against the manifest, on both page types) with no request to an original or to a CDN, every tile's `currentSrc` actually landing on a WebP candidate rather than the `<img src>` fallback — on the home grid, on series tiles, and on the hand-written series hero, whose `srcset` no code path escapes (these are the only assertions that read what the browser chose instead of what the attribute says), zero unexpected console errors, every character the site draws in Cormorant being present in `font-charset.txt`, and cumulative layout shift staying under 0.05 as the cards and grid arrive — plus, per series, one card on the home page and a series page whose photos match the layout (order, span, caption, `../`-rebased paths) |
 | `lighthouse` | `.lighthouserc.json` budget on a locally served copy of the home page **and** `projects/japan.html` (performance ≥ 0.5, a11y / best-practices / SEO ≥ 0.9) |
 
