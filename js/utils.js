@@ -69,9 +69,9 @@ function getSortedVersions(versions) {
  * already-encoded path cannot double-encode one.
  *
  * Only those two characters are escaped. CJK needs no encoding to parse, and leaving it
- * alone keeps the manifest and index.html's hand-written cover preload readable —
- * checkHomePreload builds its expected value by *calling* this function, so anything
- * escaped here has to be typed into that preload by hand to keep the check green.
+ * alone keeps the manifest and index.html's hand-written cover card readable —
+ * checkHomeCover builds its expected value by *calling* this function, so anything
+ * escaped here has to be typed into that card by hand to keep the check green.
  */
 export function toSrcsetUrl(url) {
   return url.replace(/[\s,]/g, (char) => encodeURIComponent(char));
@@ -95,9 +95,10 @@ export function getVersionSrcset(versions, format, tiers = null) {
 
 /**
  * `sizes` for a home-page series cover. Exported rather than inlined in
- * SeriesCardRenderer because index.html preloads that image and
+ * SeriesCardRenderer because index.html hand-writes that <picture> and
  * scripts/check-gallery.js asserts the two agree — one string, three readers.
- * A mismatch is worse than no preload: the browser fetches both candidates.
+ * A mismatch costs a second fetch: replaceChildren swaps in a card whose candidates
+ * no longer match the ones the browser already chose from.
  */
 export function seriesCoverSizes(breakpoints) {
   return `(max-width: ${breakpoints.TABLET}px) calc(100vw - 40px), (max-width: 1440px) 55vw, 782px`;

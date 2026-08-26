@@ -609,8 +609,14 @@ test.describe('typography and stability', () => {
             async (route) => {
                 if (!stripCard) return route.continue();
                 const response = await route.fetch();
-                const body = (await response.text())
-                    .replace(/<a\b[^>]*\bclass="series-card"[\s\S]*?<\/a>/, '');
+                const original = await response.text();
+                const body = original.replace(/<a\b[^>]*\bclass="series-card"[\s\S]*?<\/a>/, '');
+                // This regex is a second copy of the one in check-gallery.js and matches
+                // class="series-card" as the whole attribute value. Add a modifier class
+                // and it quietly matches nothing: the pass would still navigate, still
+                // find one card (the hand-written one), still measure CLS 0 — and stop
+                // exercising the reservation it exists to exercise.
+                expect(original, 'the strip route matched no series card').not.toBe(body);
                 return route.fulfill({ response, body });
             }
         );
@@ -829,6 +835,29 @@ test.describe('series', () => {
             await expect(card).toContainText(String(series.count));
             await expect(card.locator('img')).toHaveAttribute('src', /\.jpg$/);
         }
+    });
+
+    test('the hand-written cover picks a WebP candidate', async ({ page }) => {
+        // The one <picture> on the home page that no code path builds: its srcset is
+        // typed by hand, so an unescaped space or comma, or WebP listed after JPEG,
+        // leaves the LCP cover on the <img src> JPEG at every viewport while every
+        // attribute assertion and check:gallery stay green. Read what the browser
+        // chose, not what the attribute says.
+        //
+        // The manifest is aborted so SeriesShowcase never swaps the card: after that
+        // swap `.series-card img` is the renderer's copy, and this would be testing
+        // SeriesCardRenderer instead of the hand-written markup.
+        await page.route('**/js/series-data.json', (route) => route.abort());
+        await page.goto('/');
+
+        const cover = page.locator('.series-card img').first();
+        await expect(cover).toBeVisible();
+        await expect
+            .poll(() => cover.evaluate((img) => img.complete && img.naturalWidth > 0), { timeout: 30_000 })
+            .toBe(true);
+
+        const chosen = await cover.evaluate((img) => ({ alt: 'the hand-written series cover', src: img.currentSrc }));
+        expect(fellBackToSrc([chosen]), 'the hand-written cover ignored its <source>').toEqual([]);
     });
 
     test('a failed manifest leaves the hand-written card standing', async ({ page }) => {

@@ -64,7 +64,7 @@ export class SeriesCardRenderer {
       source.srcset = getVersionSrcset(series.cover.versions, format);
       // Real boxes, not round ones: stacked below TABLET (the same switch style.css
       // uses), then 1.15fr of a content column that stops at 1400 - 40 = 1360px.
-      // Lives in utils.js because index.html preloads this image with the same string.
+      // Lives in utils.js because index.html hand-writes this <source> with the same string.
       source.sizes = seriesCoverSizes(this.breakpoints);
       picture.appendChild(source);
     }

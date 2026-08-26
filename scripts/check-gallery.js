@@ -113,7 +113,8 @@ async function verifyPixels(data) {
 /**
  * Space and comma are *srcset's* delimiters, and toSrcsetUrl escapes them at render time.
  * These three are the *URL's* own delimiters, and no render-time escaping reaches every
- * consumer: img.src, the lightbox src and index.html's preload are all written raw — an
+ * consumer: img.src, the lightbox src and index.html's hand-written cover card are all
+ * written raw — an
  * attribute value is not tokenized, so escaping them there would be wrong.
  *
  *   a#b.jpg   the path truncates at the fragment; the browser requests images/a
@@ -135,7 +136,8 @@ function checkFilenameCharacters(sourceFiles) {
         fail(
             `${CONFIG.IMAGES}/${name}: filename contains ${bad.map((c) => `"${c}"`).join(', ')} — `
             + 'a URL delimiter that render-time escaping cannot fix, because img.src and the '
-            + 'cover preload are written raw. Rename the file and re-run `npm run build:gallery`.'
+            + "hand-written cover card in index.html are written raw. Rename the file and re-run "
+            + '`npm run build:gallery`.'
         );
     }
 }
@@ -397,28 +399,47 @@ async function checkHomeCover() {
 
     // Both formats: the JPEG <source> is what a browser without WebP selects, so drift
     // there is invisible to every check that only reads the WebP candidates.
-    for (const [type, format] of [['image/webp', 'webp'], ['image/jpeg', 'jpg']]) {
-        const source = (card.match(/<source\b[^>]*>/gs) || []).find((tag) => tag.includes(`type="${type}"`));
-        if (!source) {
-            fail(`${CONFIG.HOME_PAGE}: the hand-written series card has no <source type="${type}">`);
-            continue;
+    // Matched by position, not by searching for the type: <picture> takes the first
+    // <source> whose type the browser supports, so a card listing JPEG first hands every
+    // browser the heavier candidate — with both elements present, both srcsets correct,
+    // and a search-based check green. Order is the thing being asserted.
+    const sources = card.match(/<source\b[^>]*>/gs) || [];
+    if (sources.length !== 2) {
+        fail(`${CONFIG.HOME_PAGE}: the hand-written series card has ${sources.length} <source> elements, SeriesCardRenderer builds 2`);
+    }
+    [['image/webp', 'webp'], ['image/jpeg', 'jpg']].forEach(([type, format], position) => {
+        const source = sources[position];
+        if (!source || !new RegExp(`\\btype="${type}"`).test(source)) {
+            fail(`${CONFIG.HOME_PAGE}: <source> #${position + 1} of the hand-written series card is not type="${type}" — <picture> takes the first supported source, so the order decides which file the browser fetches`);
+            return;
         }
         const attr = (name) => new RegExp(`\\b${name}="([^"]*)"`).exec(source)?.[1] ?? null;
         compare(`${format} srcset`, attr('srcset'), utils.getVersionSrcset(first.cover.versions, format));
         compare(`${format} sizes`, attr('sizes'), sizes);
-    }
+    });
 
     const img = /<img\b[^>]*>/s.exec(card)?.[0] ?? '';
     const imgAttr = (name) => new RegExp(`\\b${name}="([^"]*)"`).exec(img)?.[1] ?? null;
     compare('img src', imgAttr('src'), first.cover.versions.medium.jpg);
     compare('img width', imgAttr('width'), String(first.cover.width));
     compare('img height', imgAttr('height'), String(first.cover.height));
+    // createCover leaves the cover decorative: the card's own copy already says anything
+    // a description would repeat, so a non-empty alt makes AT announce the photo on top
+    // of the title and summary it sits beside.
+    compare('img alt', imgAttr('alt'), '');
 
     // createCover marks the first cover high-priority; without it the hand-written card
     // hands the LCP image the default priority for an in-viewport <img>, which is Low
     // until layout proves it visible.
     if (!/\bfetchpriority="high"/.test(img)) {
         fail(`${CONFIG.HOME_PAGE}: the hand-written cover <img> has no fetchpriority="high"`);
+    }
+    // ...and omits `loading` entirely for index 0, setting it only from the second card
+    // on. Copying a later card, or adding it while "optimising images", defers the LCP
+    // image until layout proves it visible — undoing the whole reason this card is
+    // hand-written, with every other assertion here still green.
+    if (/\bloading=/.test(img)) {
+        fail(`${CONFIG.HOME_PAGE}: the hand-written cover <img> sets loading — SeriesCardRenderer omits it for the first card, which is the LCP element`);
     }
 
     // The copy is swapped by replaceChildren, so drift here is a flash of stale text
@@ -429,10 +450,16 @@ async function checkHomeCover() {
     // page and push the author to write a bare ampersand to go green.
     const decode = (value) => value.replace(/&(amp|lt|gt|quot|#39);/g, (_, entity) =>
         ({ amp: '&', lt: '<', gt: '>', quot: '"', '#39': "'" })[entity]);
-    const text = (className) => {
-        const found = new RegExp(`<[a-z0-9]+\\b[^>]*\\bclass="${className}"[^>]*>(.*?)</[a-z0-9]+>`, 's').exec(card);
-        return found ? decode(found[1].trim()) : null;
+    // Closed on the *same* tag via the backreference: `</[a-z0-9]+>` stops at the first
+    // close of any element, so a word wrapped in <em> truncates the compared value and
+    // reports a mismatch that reads as a regex artefact instead of "this must be plain
+    // text, because SeriesCardRenderer sets textContent".
+    const element = (className) => {
+        const found = new RegExp(`<([a-z0-9]+)\\b([^>]*\\bclass="${className}"[^>]*)>(.*?)</\\1>`, 's').exec(card);
+        return found ? { attrs: found[2], text: decode(found[3].trim()) } : null;
     };
+    const text = (className) => element(className)?.text ?? null;
+    const idOf = (className) => /\bid="([^"]*)"/.exec(element(className)?.attrs ?? '')?.[1] ?? null;
     compare('eyebrow', text('series-card-eyebrow'), `Series — ${first.period}`);
     compare('title', text('series-card-title'), first.title);
     compare('subtitle', text('series-card-subtitle'), first.titleZh);
@@ -440,7 +467,18 @@ async function checkHomeCover() {
     compare('cta', text('series-card-cta'), `View series · ${first.count} photographs`);
 
     const open = /^<a\b[^>]*>/.exec(card)?.[0] ?? '';
-    compare('href', /\bhref="([^"]*)"/.exec(open)?.[1] ?? null, first.page);
+    const openAttr = (name) => new RegExp(`\\b${name}="([^"]*)"`).exec(open)?.[1] ?? null;
+    compare('href', openAttr('href'), first.page);
+
+    // render() names the link by its title and CTA rather than letting it fall back to
+    // the subtree, which would name it with the whole ~90-character summary and fill the
+    // links rotor with it. The ids are checked too: aria-labelledby pointing at ids that
+    // are not on the card leaves the link with no accessible name at all. Both matter
+    // most before the JS copy swaps in — and for a visitor whose manifest never arrives,
+    // it never does.
+    compare('aria-labelledby', openAttr('aria-labelledby'), `series-${first.id}-title series-${first.id}-cta`);
+    compare('title id', idOf('series-card-title'), `series-${first.id}-title`);
+    compare('cta id', idOf('series-card-cta'), `series-${first.id}-cta`);
 }
 
 /**
