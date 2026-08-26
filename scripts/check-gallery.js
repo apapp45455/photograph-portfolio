@@ -337,25 +337,25 @@ async function loadBrowserModule(file) {
 }
 
 /**
- * index.html preloads the first series cover, because that <picture> is built by JS
- * after two round trips and the preload scanner would otherwise never see it.
+ * index.html hand-writes the whole first series card, because it holds the LCP element
+ * and the JS-built copy only lands after main.js's four-deep import chain resolves
+ * series-data.json — measured 3020ms against 2200ms with the card in the HTML, while
+ * the cover's bytes were already there at 2841ms either way.
  *
- * The filename is therefore hard-coded in a hand-written file: reorder the series or
- * swap a cover and the tag silently points at a photo that is no longer first. A
- * mismatched srcset/sizes is *worse* than no preload — the browser downloads the
- * preloaded candidate and then the one <picture> actually selects.
+ * That makes a hand-written file carry a copy of SeriesCardRenderer's output, keyed to
+ * whichever series happens to be first. Reorder the series or swap a cover and the card
+ * points at a photo that is no longer first; drift in the srcset/sizes and the browser
+ * fetches a *second* file the moment SeriesShowcase.replaceChildren swaps the card;
+ * drift in the copy and the page shows stale text until that swap. This is the guard.
  */
-async function checkHomePreload() {
+async function checkHomeCover() {
     if (!fs.existsSync(CONFIG.HOME_PAGE) || !fs.existsSync(CONFIG.SERIES_DATA)) return;
 
     const html = fs.readFileSync(CONFIG.HOME_PAGE, 'utf8');
-
-    // Selected on both attributes rather than by one regex that pins their order:
-    // attribute order is not semantic, this <head> holds a second rel="preload" (the
-    // font stylesheet), and a reordered tag reported as a *missing* tag would send the
-    // next person hunting for something that is right there.
-    const tag = (html.match(/<link\b[^>]*>/gs) || [])
-        .find((link) => /\brel="preload"/.test(link) && /\bas="image"/.test(link));
+    // Anchored on the card, not on .series-list's closing tag: a "View all series"
+    // link after the list, or class written second on the div, would otherwise make
+    // this match nothing and report a card that is right there as missing.
+    const card = /<a\b[^>]*\bclass="series-card"[\s\S]*?<\/a>/.exec(html)?.[0] ?? '';
 
     let series;
     try {
@@ -363,51 +363,84 @@ async function checkHomePreload() {
     } catch {
         return; // checkSeries already reported the parse failure
     }
-    if (!Array.isArray(series) || series.length === 0 || !series[0] || !series[0].cover) {
-        if (tag) fail(`${CONFIG.HOME_PAGE}: preloads a cover image, but ${CONFIG.SERIES_DATA} has no first cover`);
+    const first = Array.isArray(series) ? series[0] : null;
+    if (!first || !first.cover) {
+        if (card) {
+            fail(`${CONFIG.HOME_PAGE}: hand-writes a series card, but ${CONFIG.SERIES_DATA} has no first cover`);
+        }
         return;
     }
 
-    if (!tag) {
-        fail(`${CONFIG.HOME_PAGE}: no <link rel="preload" as="image"> for the first series cover — its request waits on two round trips of JS`);
+    if (!card) {
+        fail(`${CONFIG.HOME_PAGE}: .series-list is empty — the LCP cover then waits on main.js's import chain (measured +820ms)`);
         return;
-    }
-
-    // imagesrcset is asserted against the WebP candidates below, so without this a
-    // browser that cannot decode WebP preloads a file it can never use — and the
-    // guard would still be green.
-    if (!/\btype="image\/webp"/.test(tag)) {
-        fail(`${CONFIG.HOME_PAGE}: the cover preload has no type="image/webp", so a browser without WebP support would fetch a candidate it cannot decode`);
     }
 
     const utils = await loadBrowserModule('js/utils.js');
     const { CONFIG: FRONTEND } = await loadBrowserModule('js/config.js');
+    const sizes = utils.seriesCoverSizes(FRONTEND.BREAKPOINTS);
 
-    const expected = {
-        imagesrcset: utils.getVersionSrcset(series[0].cover.versions, 'webp'),
-        imagesizes: utils.seriesCoverSizes(FRONTEND.BREAKPOINTS),
-    };
-
-    for (const [attribute, want] of Object.entries(expected)) {
-        const found = new RegExp(`\\b${attribute}="([^"]*)"`).exec(tag);
-        if (!found) {
-            fail(`${CONFIG.HOME_PAGE}: the cover preload has no ${attribute}`);
-            continue;
-        }
-
-        // Byte-exact, deliberately not norm(): every other comparison in this file
-        // joins a filesystem name to a manifest entry, where macOS handing back NFD is
-        // noise. Both sides here are URLs, and Pages serves paths byte-exactly — a
-        // filename pasted from Finder in NFD is a *different* URL that 404s, while
-        // <picture> still fetches the NFC one from the manifest. Normalising would wave
-        // through precisely the wasted LCP round trip this guard exists to prevent.
-        if (found[1] === want) continue;
-
-        const detail = norm(found[1]) === norm(want)
+    // Byte-exact, deliberately not norm(): every other comparison in this file joins a
+    // filesystem name to a manifest entry, where macOS handing back NFD is noise. These
+    // are URLs, and Pages serves paths byte-exactly — a filename pasted from Finder in
+    // NFD is a *different* URL that 404s, while the swapped-in <picture> still fetches
+    // the NFC one from the manifest. Normalising would wave through precisely the
+    // duplicate download this guard exists to prevent.
+    const compare = (label, found, want) => {
+        if (found === want) return;
+        if (found === null) return fail(`${CONFIG.HOME_PAGE}: the hand-written series card has no ${label}`);
+        const detail = norm(found) === norm(want)
             ? '\n  (same characters — these differ only in Unicode normalisation, which the diff above cannot show)'
             : '';
-        fail(`${CONFIG.HOME_PAGE}: preload ${attribute} is\n  ${found[1]}\nbut SeriesCardRenderer.createCover builds\n  ${want}${detail}`);
+        fail(`${CONFIG.HOME_PAGE}: series card ${label} is\n  ${found}\nbut SeriesCardRenderer builds\n  ${want}${detail}`);
+    };
+
+    // Both formats: the JPEG <source> is what a browser without WebP selects, so drift
+    // there is invisible to every check that only reads the WebP candidates.
+    for (const [type, format] of [['image/webp', 'webp'], ['image/jpeg', 'jpg']]) {
+        const source = (card.match(/<source\b[^>]*>/gs) || []).find((tag) => tag.includes(`type="${type}"`));
+        if (!source) {
+            fail(`${CONFIG.HOME_PAGE}: the hand-written series card has no <source type="${type}">`);
+            continue;
+        }
+        const attr = (name) => new RegExp(`\\b${name}="([^"]*)"`).exec(source)?.[1] ?? null;
+        compare(`${format} srcset`, attr('srcset'), utils.getVersionSrcset(first.cover.versions, format));
+        compare(`${format} sizes`, attr('sizes'), sizes);
     }
+
+    const img = /<img\b[^>]*>/s.exec(card)?.[0] ?? '';
+    const imgAttr = (name) => new RegExp(`\\b${name}="([^"]*)"`).exec(img)?.[1] ?? null;
+    compare('img src', imgAttr('src'), first.cover.versions.medium.jpg);
+    compare('img width', imgAttr('width'), String(first.cover.width));
+    compare('img height', imgAttr('height'), String(first.cover.height));
+
+    // createCover marks the first cover high-priority; without it the hand-written card
+    // hands the LCP image the default priority for an in-viewport <img>, which is Low
+    // until layout proves it visible.
+    if (!/\bfetchpriority="high"/.test(img)) {
+        fail(`${CONFIG.HOME_PAGE}: the hand-written cover <img> has no fetchpriority="high"`);
+    }
+
+    // The copy is swapped by replaceChildren, so drift here is a flash of stale text
+    // rather than a permanent wrong page — invisible on localhost, where the manifest
+    // arrives before the first paint.
+    // SeriesCardRenderer sets textContent, so a title of `Light & Shadow` is correctly
+    // hand-written as `Light &amp; Shadow`. Comparing the raw source would fail that
+    // page and push the author to write a bare ampersand to go green.
+    const decode = (value) => value.replace(/&(amp|lt|gt|quot|#39);/g, (_, entity) =>
+        ({ amp: '&', lt: '<', gt: '>', quot: '"', '#39': "'" })[entity]);
+    const text = (className) => {
+        const found = new RegExp(`<[a-z0-9]+\\b[^>]*\\bclass="${className}"[^>]*>(.*?)</[a-z0-9]+>`, 's').exec(card);
+        return found ? decode(found[1].trim()) : null;
+    };
+    compare('eyebrow', text('series-card-eyebrow'), `Series — ${first.period}`);
+    compare('title', text('series-card-title'), first.title);
+    compare('subtitle', text('series-card-subtitle'), first.titleZh);
+    compare('summary', text('series-card-summary'), first.summary);
+    compare('cta', text('series-card-cta'), `View series · ${first.count} photographs`);
+
+    const open = /^<a\b[^>]*>/.exec(card)?.[0] ?? '';
+    compare('href', /\bhref="([^"]*)"/.exec(open)?.[1] ?? null, first.page);
 }
 
 /**
@@ -606,7 +639,7 @@ async function main() {
     }
 
     checkSeries(data);
-    await checkHomePreload();
+    await checkHomeCover();
     await checkGridTiers(data);
 
     if (DEEP) {

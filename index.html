@@ -6,19 +6,6 @@
     <title>大衛的攝影網站</title>
     <meta name="description" content="大衛的攝影作品集 — 街景、建築與旅途中的光。David Wang's photography portfolio." />
     <link rel="canonical" href="https://apapp45455.github.io/photograph-portfolio/" />
-    <!-- The largest above-the-fold element is the first series cover, but that <picture>
-         is built by JS after two round trips, so the preload scanner never sees it and
-         the request went out at 7.3s. imagesrcset/imagesizes must match what
-         SeriesCardRenderer.createCover computes, or the browser fetches a second file;
-         scripts/check-gallery.js is what keeps the two in step. -->
-    <link
-      rel="preload"
-      as="image"
-      type="image/webp"
-      imagesrcset="images/optimized/日本_會津若松城-thumb.webp 400w, images/optimized/日本_會津若松城-medium.webp 1080w, images/optimized/日本_會津若松城-large.webp 1920w"
-      imagesizes="(max-width: 1024px) calc(100vw - 40px), (max-width: 1440px) 55vw, 782px"
-      fetchpriority="high"
-    />
     <link rel="stylesheet" href="style.css" />
 
     <!-- Open Graph / Social Sharing -->
@@ -56,12 +43,35 @@
       </nav>
     </header>
     <main id="main" tabindex="-1">
-      <!-- 專題（系列作品）— 卡片由 js/series.js 依 js/series-data.json 產生 -->
+      <!-- 專題（系列作品）— 卡片由 js/series.js 依 js/series-data.json 產生。
+           第一張是 LCP 元素，所以整張手寫在這裡：JS 產生的版本要等 main.js 的四層
+           import 解析完才拿得到 series-data.json，量到的 LCP 是 3020ms，位元組其實
+           2841ms 就到齊了。手寫這張讓預載掃描器直接看到 <img srcset>，LCP 2200ms。
+           SeriesShowcase 之後用 replaceChildren 換成同樣的卡片；src 相同，不會重抓。
+           內容必須與 SeriesCardRenderer 的輸出逐字相同，否則換掉的瞬間會抓第二個檔
+           或閃一段舊文字 — scripts/check-gallery.js 的 checkHomeCover 釘住這件事。 -->
       <section id="series" class="series-section">
         <h2 class="section-heading">Series</h2>
-        <!-- --series-count reserves the band's height before JS inserts the cards;
+        <!-- --series-count reserves the band's height for any card JS still inserts;
              scripts/check-gallery.js fails if it disagrees with js/series-data.json. -->
-        <div class="series-list" id="series-list" style="--series-count: 1"></div>
+        <div class="series-list" id="series-list" style="--series-count: 1">
+          <a class="series-card" href="projects/japan.html" aria-labelledby="series-japan-title series-japan-cta">
+            <div class="series-card-cover">
+              <picture>
+                <source type="image/webp" srcset="images/optimized/日本_會津若松城-thumb.webp 400w, images/optimized/日本_會津若松城-medium.webp 1080w, images/optimized/日本_會津若松城-large.webp 1920w" sizes="(max-width: 1024px) calc(100vw - 40px), (max-width: 1440px) 55vw, 782px" />
+                <source type="image/jpeg" srcset="images/optimized/日本_會津若松城-thumb.jpg 400w, images/optimized/日本_會津若松城-medium.jpg 1080w, images/optimized/日本_會津若松城-large.jpg 1920w" sizes="(max-width: 1024px) calc(100vw - 40px), (max-width: 1440px) 55vw, 782px" />
+                <img alt="" width="5328" height="4000" fetchpriority="high" src="images/optimized/日本_會津若松城-medium.jpg" />
+              </picture>
+            </div>
+            <div class="series-card-body">
+              <p class="series-card-eyebrow">Series — 2026 / 05</p>
+              <h3 class="series-card-title" id="series-japan-title">Japan · Tōhoku</h3>
+              <p class="series-card-subtitle">日本・東北</p>
+              <p class="series-card-summary">五月的東北。先在山形的展望台上往下看城市的幾何，隔天南下福島，走過花見山公園的新綠，最後停在會津若松城的白牆前。兩天，五張。</p>
+              <span class="series-card-cta" id="series-japan-cta">View series · 5 photographs</span>
+            </div>
+          </a>
+        </div>
       </section>
 
       <section class="work-section">
