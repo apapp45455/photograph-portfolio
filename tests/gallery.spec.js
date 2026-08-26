@@ -597,6 +597,24 @@ test.describe('typography and stability', () => {
             await new Promise((resolve) => setTimeout(resolve, 600));
             return route.continue();
         });
+        // Card #1 is hand-written into index.html because it holds the LCP element, so
+        // the shipped home page inserts nothing into .series-list and its reservation
+        // stops being exercised there — delete min-height and both --series-card-body
+        // constants from style.css and every assertion below stays green. The second
+        // home pass strips the card back out, which is what keeps those measured
+        // constants measured until a second series exists for JS to insert.
+        let stripCard = false;
+        await page.route(
+            (url) => url.pathname === '/' || url.pathname.endsWith('/index.html'),
+            async (route) => {
+                if (!stripCard) return route.continue();
+                const response = await route.fetch();
+                const body = (await response.text())
+                    .replace(/<a\b[^>]*\bclass="series-card"[\s\S]*?<\/a>/, '');
+                return route.fulfill({ response, body });
+            }
+        );
+
         await page.addInitScript(() => {
             window.__cls = 0;
             new PerformanceObserver((list) => {
@@ -607,15 +625,14 @@ test.describe('typography and stability', () => {
         // Both page types insert their content the same way, and both had a shift:
         // the home page's series band (0.101) and the series page's photo grid, which
         // pushed "Back to gallery" off screen (0.0298).
+        const home = async () => {
+            await expect(page.locator('.series-card')).toHaveCount(seriesData.length);
+            await expect(page.locator('#gallery-container .gallery-item-wrapper'))
+                .toHaveCount(homePhotos.length);
+        };
         const pages = [
-            {
-                url: '/',
-                rendered: async () => {
-                    await expect(page.locator('.series-card')).toHaveCount(seriesData.length);
-                    await expect(page.locator('#gallery-container .gallery-item-wrapper'))
-                        .toHaveCount(homePhotos.length);
-                }
-            },
+            { url: '/', rendered: home },
+            { url: '/', rendered: home, strip: true },
             ...seriesData.map((series) => ({
                 url: `/${series.page}`,
                 rendered: async () => {
@@ -628,7 +645,9 @@ test.describe('typography and stability', () => {
         // viewports, 1280 and 412 — so the constant covering 481-1024px, every tablet
         // and every phone in landscape, is the one no project would ever exercise.
         // Widths are driven from inside the test for that reason.
-        for (const { url, rendered } of pages) {
+        for (const { url, rendered, strip = false } of pages) {
+            stripCard = strip;
+            const label = strip ? '/ (hand-written card stripped)' : url;
             for (const [width, height] of [[320, 568], [430, 932], [768, 1024], [1024, 768], [1280, 800]]) {
                 await page.setViewportSize({ width, height });
                 await page.goto(url);
@@ -638,7 +657,7 @@ test.describe('typography and stability', () => {
                 await page.waitForTimeout(1200);
 
                 const cls = await page.evaluate(() => window.__cls);
-                expect(cls, `${url} at ${width}px: cumulative layout shift ${cls.toFixed(4)}`)
+                expect(cls, `${label} at ${width}px: cumulative layout shift ${cls.toFixed(4)}`)
                     .toBeLessThan(0.05);
             }
         }

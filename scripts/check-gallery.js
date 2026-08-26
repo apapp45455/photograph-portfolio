@@ -352,7 +352,10 @@ async function checkHomeCover() {
     if (!fs.existsSync(CONFIG.HOME_PAGE) || !fs.existsSync(CONFIG.SERIES_DATA)) return;
 
     const html = fs.readFileSync(CONFIG.HOME_PAGE, 'utf8');
-    const card = /<div class="series-list"[^>]*>(.*?)<\/div>\s*<\/section>/s.exec(html)?.[1] ?? '';
+    // Anchored on the card, not on .series-list's closing tag: a "View all series"
+    // link after the list, or class written second on the div, would otherwise make
+    // this match nothing and report a card that is right there as missing.
+    const card = /<a\b[^>]*\bclass="series-card"[\s\S]*?<\/a>/.exec(html)?.[0] ?? '';
 
     let series;
     try {
@@ -362,13 +365,13 @@ async function checkHomeCover() {
     }
     const first = Array.isArray(series) ? series[0] : null;
     if (!first || !first.cover) {
-        if (/<a class="series-card"/.test(card)) {
+        if (card) {
             fail(`${CONFIG.HOME_PAGE}: hand-writes a series card, but ${CONFIG.SERIES_DATA} has no first cover`);
         }
         return;
     }
 
-    if (!/<a class="series-card"/.test(card)) {
+    if (!card) {
         fail(`${CONFIG.HOME_PAGE}: .series-list is empty — the LCP cover then waits on main.js's import chain (measured +820ms)`);
         return;
     }
@@ -421,9 +424,14 @@ async function checkHomeCover() {
     // The copy is swapped by replaceChildren, so drift here is a flash of stale text
     // rather than a permanent wrong page — invisible on localhost, where the manifest
     // arrives before the first paint.
+    // SeriesCardRenderer sets textContent, so a title of `Light & Shadow` is correctly
+    // hand-written as `Light &amp; Shadow`. Comparing the raw source would fail that
+    // page and push the author to write a bare ampersand to go green.
+    const decode = (value) => value.replace(/&(amp|lt|gt|quot|#39);/g, (_, entity) =>
+        ({ amp: '&', lt: '<', gt: '>', quot: '"', '#39': "'" })[entity]);
     const text = (className) => {
-        const found = new RegExp(`<[a-z0-9]+ class="${className}"[^>]*>(.*?)</[a-z0-9]+>`, 's').exec(card);
-        return found ? found[1].trim() : null;
+        const found = new RegExp(`<[a-z0-9]+\\b[^>]*\\bclass="${className}"[^>]*>(.*?)</[a-z0-9]+>`, 's').exec(card);
+        return found ? decode(found[1].trim()) : null;
     };
     compare('eyebrow', text('series-card-eyebrow'), `Series — ${first.period}`);
     compare('title', text('series-card-title'), first.title);
@@ -431,8 +439,8 @@ async function checkHomeCover() {
     compare('summary', text('series-card-summary'), first.summary);
     compare('cta', text('series-card-cta'), `View series · ${first.count} photographs`);
 
-    const href = /<a class="series-card"[^>]*\bhref="([^"]*)"/.exec(card)?.[1] ?? null;
-    compare('href', href, first.page);
+    const open = /^<a\b[^>]*>/.exec(card)?.[0] ?? '';
+    compare('href', /\bhref="([^"]*)"/.exec(open)?.[1] ?? null, first.page);
 }
 
 /**
