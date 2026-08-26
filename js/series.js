@@ -131,7 +131,10 @@ export class SeriesCardRenderer {
 
 /**
  * Renders the series cards on the home page. Hides its section entirely when
- * there is nothing to show, so the page never carries an empty heading.
+ * there is nothing to show, so the page never carries an empty heading — but
+ * only when the container is genuinely empty: index.html hand-writes the first
+ * card (it holds the LCP cover), so a failed manifest fetch must leave that
+ * card standing rather than blank the band it already renders correctly.
  */
 export class SeriesShowcase {
   constructor({ container, section, dataSource, renderer }) {
@@ -151,7 +154,7 @@ export class SeriesShowcase {
     }
 
     if (this.data.length === 0) {
-      if (this.section) this.section.hidden = true;
+      this.hideIfEmpty();
       return;
     }
 
@@ -164,8 +167,13 @@ export class SeriesShowcase {
       // the band, not reject out of the DOMContentLoaded handler as an unhandled
       // rejection — which is what the load-failure catch above already intends.
       console.error("Error rendering series:", error);
-      if (this.section) this.section.hidden = true;
+      this.hideIfEmpty();
     }
+  }
+
+  /** Only an empty band is worth hiding; server-rendered cards are still real content. */
+  hideIfEmpty() {
+    if (this.section && this.container.children.length === 0) this.section.hidden = true;
   }
 }
 

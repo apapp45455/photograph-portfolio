@@ -830,6 +830,17 @@ test.describe('series', () => {
             await expect(card.locator('img')).toHaveAttribute('src', /\.jpg$/);
         }
     });
+
+    test('a failed manifest leaves the hand-written card standing', async ({ page }) => {
+        // The band used to be hidden whenever the manifest produced nothing to render,
+        // which was free while .series-list was empty. It now holds the LCP card, so a
+        // transient 3KB failure would blank the site's only static link to the series.
+        await page.route('**/js/series-data.json', (route) => route.abort());
+        await page.goto('/');
+
+        await expect(page.locator('#series')).not.toHaveAttribute('hidden', /.*/);
+        await expect(page.locator('.series-card').first()).toBeVisible();
+    });
 });
 
 for (const series of seriesData) {
