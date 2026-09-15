@@ -71,6 +71,24 @@
         "caption": "會津若松・鶴ヶ城",
         "alt": "從會津若松城上俯瞰樹林間的紅色鳥居參道"
       }
-    ]
+    ],
+    "heroVersions": {
+      "medium": {
+        "jpg": "images/optimized/日本_會津若松城-hero-medium.jpg",
+        "webp": "images/optimized/日本_會津若松城-hero-medium.webp",
+        "width": 1080,
+        "height": 463,
+        "ratio": 2.3333333333333335,
+        "focusY": 0.15
+      },
+      "large": {
+        "jpg": "images/optimized/日本_會津若松城-hero-large.jpg",
+        "webp": "images/optimized/日本_會津若松城-hero-large.webp",
+        "width": 1920,
+        "height": 823,
+        "ratio": 2.3333333333333335,
+        "focusY": 0.15
+      }
+    }
   }
 ]

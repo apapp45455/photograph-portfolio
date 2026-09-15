@@ -925,17 +925,41 @@ for (const series of seriesData) {
                 .poll(() => hero.evaluate((img) => img.complete && img.naturalWidth > 0))
                 .toBe(true);
 
-            // The hero is the one hand-written part of a series page: its paths and
-            // width/height are typed in, not generated. Tie both to the manifest so a
-            // re-crop or a changed `cover` cannot leave it silently stale.
-            const coverBase = series.cover.filename.replace(/\.[^/.]+$/, '');
-            expect(await hero.getAttribute('src')).toContain(`${coverBase}-`);
+            // The hero serves two files: the 21:9 band above 600px, where the box is
+            // 21:9 over a 4:3 source and 43% of the frame would otherwise be downloaded
+            // and discarded, and the full frame below it, where the box is the source's
+            // own 4:3 and there is nothing to crop.
+            //
+            // So assert the invariant rather than either file: the decoded ratio has to
+            // match the ratio of the box it is painted into. Any mismatch is object-fit
+            // cover-cropping at render time — a band squeezed into the 4:3 phone box
+            // (2.33 vs 1.33, which is what shipped and what nothing here caught), or the
+            // full frame back in the 21:9 box, which renders identically and costs
+            // 140KB instead of 52KB. Read off the rendered element, not the attributes:
+            // the attributes are what was typed, the box is what the viewer gets.
+            const framing = await hero.evaluate((img) => {
+                const rect = img.getBoundingClientRect();
+                return { box: rect.width / rect.height, file: img.naturalWidth / img.naturalHeight };
+            });
+            expect(framing.file, 'the hero is being cover-cropped by object-fit').toBeCloseTo(framing.box, 1);
 
+            // Above 600px that box is the band's, so the band is the file that must be
+            // on the wire — the whole point of cropping at build time.
+            const viewport = page.viewportSize();
+            const band = series.heroVersions.large;
+            const bandBase = band.jpg.replace(/^.*\//, '').replace(/-large\.jpg$/, '');
+            if (viewport.width > 600) {
+                // currentSrc comes back percent-encoded and the cover name is CJK, so
+                // decode before comparing — and NFC-normalise, since macOS hands back NFD.
+                const chosen = decodeURIComponent(await hero.evaluate((img) => img.currentSrc)).normalize('NFC');
+                expect(chosen).toContain(bandBase.normalize('NFC'));
+                expect(framing.file).toBeCloseTo(band.width / band.height, 1);
+            }
+
+            // The typed-in width/height still have to describe the file the attributes
+            // name, or the pre-CSS layout box is wrong.
             const declared = await hero.evaluate((img) => Number(img.getAttribute('width')) / Number(img.getAttribute('height')));
-            expect(declared).toBeCloseTo(series.cover.aspectRatio, 2);
-
-            const decoded = await hero.evaluate((img) => img.naturalWidth / img.naturalHeight);
-            expect(decoded).toBeCloseTo(series.cover.aspectRatio, 2);
+            expect(declared).toBeCloseTo(band.width / band.height, 2);
 
             // The hero is the one srcset in the repo that getVersionSrcset never touches
             // — it is typed into the page — so the escaping fix cannot protect it. A

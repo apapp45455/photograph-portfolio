@@ -22,6 +22,17 @@ const CONFIG = {
         medium: 1080,
         large: 1920
     },
+    // The 21:9 band of a series cover, for the viewports whose hero box is 21:9 —
+    // above 600px, per `.project-hero img` in style.css. object-fit crops at render
+    // time, so without the band those viewports download the 43% of the frame that is
+    // then discarded, on the one image that *is* the LCP element of every series page:
+    // 140KB against 52KB at 1080w, for pixels nobody sees. At 600px and below the box
+    // is the source's own 4:3 and the page serves the full frame instead — there is
+    // nothing to crop there, and a band would be cover-cropped on the sides.
+    // HERO_FOCUS_Y mirrors `object-position: center 15%`: the band has to come from
+    // the same place, or the hero reframes. checkHeroRatio holds both to style.css.
+    HERO_RATIO: 21 / 9,
+    HERO_FOCUS_Y: 0.15,
     JPEG_QUALITY: 80,
     // WebP at the JPEG's quality number was the wrong dial: it produced files larger
     // than the mozjpeg fallback for 5 of 18 photos at medium and large, so <picture>
@@ -145,6 +156,75 @@ class ImageProcessor {
             jpg: `${CONFIG.DIRECTORIES.OPTIMIZED}/${jpgName}`,
             webp: `${CONFIG.DIRECTORIES.OPTIMIZED}/${webpName}`,
             width: targetWidth
+        };
+    }
+
+    /**
+     * The 21:9 band of a series cover, pre-cropped so the browser never downloads the
+     * part `object-fit: cover` discards. Generated only for covers — a band of all 18
+     * photos would be dead weight, since nothing but a hero ever renders one.
+     *
+     * The resize is materialised as raw pixels before extracting rather than trusting
+     * a predicted height: sharp owns the rounding, and being one pixel out here is an
+     * `extract` past the edge, not a slightly different crop.
+     */
+    static async generateHeroBand(filePath, baseName, sizeName, targetWidth, committed) {
+        const jpgName = `${baseName}-hero-${sizeName}.jpg`;
+        const webpName = `${baseName}-hero-${sizeName}.webp`;
+        const jpgPath = path.join(CONFIG.DIRECTORIES.OPTIMIZED, jpgName);
+        const webpPath = path.join(CONFIG.DIRECTORIES.OPTIMIZED, webpName);
+
+        // A band's identity is the crop it was cut with, not just its file name. Two
+        // bands at the same width and ratio but different HERO_FOCUS_Y are the same
+        // size, so the manifest, the dimension check and the rendered box all still
+        // agree — a reframe would otherwise ship with every check green and nothing
+        // holding the old pixels to account. Comparing the committed parameters makes
+        // it rebuild itself, with no --force to remember. In the steady state they
+        // match, so CI re-encodes nothing and mozjpeg's cross-platform byte difference
+        // never comes up.
+        const cutWithCurrentCrop = committed
+            && committed.ratio === CONFIG.HERO_RATIO
+            && committed.focusY === CONFIG.HERO_FOCUS_Y;
+
+        // Nothing to write: read the height back off the file rather than re-deriving
+        // it — a header read, not the ~8MB raw decode below, on the one path that
+        // always runs (CI's check:generated regenerates into exactly this state). It is
+        // also the more honest number, since it reports what the committed file is.
+        if (!FORCE && cutWithCurrentCrop && fs.existsSync(webpPath) && fs.existsSync(jpgPath)) {
+            const { height } = await sharp(webpPath).metadata();
+            return {
+                jpg: `${CONFIG.DIRECTORIES.OPTIMIZED}/${jpgName}`,
+                webp: `${CONFIG.DIRECTORIES.OPTIMIZED}/${webpName}`,
+                width: targetWidth,
+                height,
+                ratio: CONFIG.HERO_RATIO,
+                focusY: CONFIG.HERO_FOCUS_Y
+            };
+        }
+
+        const { data, info } = await sharp(filePath)
+            .rotate().resize(targetWidth).raw().toBuffer({ resolveWithObject: true });
+        const height = Math.min(Math.round(targetWidth / CONFIG.HERO_RATIO), info.height);
+        const top = Math.round((info.height - height) * CONFIG.HERO_FOCUS_Y);
+        const band = () => sharp(data, { raw: { width: info.width, height: info.height, channels: info.channels } })
+            .extract({ left: 0, top, width: info.width, height });
+
+        // Both formats, unconditionally. The skip above already returned for the steady
+        // state, so reaching here means --force, a moved crop, or a missing file — and
+        // in all three the two formats have to come out of the *same* cut. Rewriting
+        // only the missing one would leave the survivor uncompared against the height
+        // this run just recomputed. CI never reaches here, so mozjpeg's cross-platform
+        // byte difference still never comes up.
+        await band().webp({ quality: CONFIG.WEBP_QUALITY, effort: CONFIG.WEBP_EFFORT }).toFile(webpPath);
+        await band().jpeg({ quality: CONFIG.JPEG_QUALITY, mozjpeg: true }).toFile(jpgPath);
+
+        return {
+            jpg: `${CONFIG.DIRECTORIES.OPTIMIZED}/${jpgName}`,
+            webp: `${CONFIG.DIRECTORIES.OPTIMIZED}/${webpName}`,
+            width: targetWidth,
+            height,
+            ratio: CONFIG.HERO_RATIO,
+            focusY: CONFIG.HERO_FOCUS_Y
         };
     }
 }
@@ -286,6 +366,39 @@ class GalleryGenerator {
 
             const seriesData = catalog.build(galleryData);
 
+            // Hero bands are generated here rather than inside build(), which stays a
+            // pure transform of the manifest: this is the one step that needs to know
+            // which photo ended up as a cover *and* touch the disk.
+            // The committed manifest, read before it is overwritten: it carries the crop
+            // each band on disk was actually cut with, which is the only way to tell a
+            // current band from a same-sized stale one.
+            const committedBands = new Map();
+            if (fs.existsSync(CONFIG.DIRECTORIES.SERIES_OUTPUT)) {
+                try {
+                    for (const entry of JSON.parse(fs.readFileSync(CONFIG.DIRECTORIES.SERIES_OUTPUT, 'utf8'))) {
+                        committedBands.set(entry.id, entry.heroVersions || {});
+                    }
+                } catch {
+                    // Missing or malformed: every band counts as unknown and is re-cut.
+                }
+            }
+
+            for (const series of seriesData) {
+                if (!series.cover) continue;
+                const baseName = path.parse(series.cover.filename).name;
+                const filePath = path.join(CONFIG.DIRECTORIES.IMAGES, series.cover.filename);
+                const committed = committedBands.get(series.id) || {};
+                series.heroVersions = {};
+                for (const [sizeName, version] of Object.entries(series.cover.versions)) {
+                    // No thumb band. The hero is full-bleed and never narrower than
+                    // ~280 CSS px, so a 400px band could only ever be the *soft* pick;
+                    // the page offers medium and large, same as it did uncropped.
+                    if (sizeName === 'thumb') continue;
+                    series.heroVersions[sizeName] =
+                        await ImageProcessor.generateHeroBand(filePath, baseName, sizeName, version.width, committed[sizeName]);
+                }
+            }
+
             fs.writeFileSync(CONFIG.DIRECTORIES.DATA_OUTPUT, JSON.stringify(galleryData, null, 2));
             fs.writeFileSync(CONFIG.DIRECTORIES.SERIES_OUTPUT, JSON.stringify(seriesData, null, 2));
 
@@ -302,4 +415,11 @@ class GalleryGenerator {
     }
 }
 
-GalleryGenerator.run();
+// Exported so scripts/check-gallery.js can assert HERO_RATIO / HERO_FOCUS_Y against
+// the `.project-hero img` rules in style.css. Guarded so requiring this file for that
+// does not kick off a build.
+if (require.main === module) {
+    GalleryGenerator.run();
+}
+
+module.exports = { CONFIG };

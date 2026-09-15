@@ -142,6 +142,127 @@ every run with no overlap in range; CLS 0 → 0.0001, and the cover is still req
 `replaceChildren` swaps in an identical `<picture>`, so nothing is re-fetched. The measurement was
 re-run against the committed file, not the injected copy. Numbers above the table predate that change.
 
+## The series hero is cropped at build time, not by `object-fit`
+
+`object-fit: cover` crops at *render* time, so a box whose ratio differs from the file's
+means downloading pixels the browser then discards. `.project-hero img` is the one place
+that mattered: `aspect-ratio: 21 / 9` over a 4:3 source, on the LCP element of every
+series page — 43% of the frame fetched and thrown away. `generate-gallery.js` now emits a
+`<name>-hero-<tier>.{jpg,webp}` band per series cover, recorded on `series-data.json` as
+`heroVersions`.
+
+**Which file the page serves follows the box CSS gives it, and that is not one ratio:**
+
+| viewport | `.project-hero img` box | file served | why |
+|---|---|---|---|
+| > 600px | 21:9 | `-hero-` band | box ≠ source, so the crop is free bytes |
+| ≤ 600px | 4:3 (`style.css` media rule) | full frame | box **is** the source ratio — nothing to crop |
+
+The phone case is not an oversight, it is the point: below 600px the hero already showed
+the whole frame at exactly the pixels on screen. The first version of this change shipped
+the band at every width, and `object-fit: cover` in the 4:3 phone box cropped it on the
+*sides* instead — the mobile hero became the middle 57% of the top-15% sky strip,
+upscaled ~1.6×, under a scrim tuned for a photo that was no longer there. It passed lint,
+`check:gallery --deep`, `check:generated` and all 68 e2e assertions, because every one of
+them compared the file against itself. That is what `checkHeroRatio` now exists for.
+
+| | 1080w | 1920w |
+|---|---|---|
+| Full frame (was) | 140 KB | 382 KB |
+| 21:9 band (now) | 52 KB | 131 KB |
+
+The band beats a naive 43%-of-the-area estimate because `object-position: center 15%`
+takes it from the top of the frame, which here is mostly sky — low entropy, cheap to
+encode.
+
+Local serve, 768×1024 at DPR 2 (the narrowest viewport that gets the band), Slow 4G + 4×
+CPU, 4 paired runs, median LCP **26900 ms → 9680 ms (−17220 ms)**, winning every run with
+no overlap. The absolute numbers are what 400 kbps does to a page; the paired delta is the
+signal. The drop is far larger than the 251 KB alone buys because the hero does not
+download in isolation — on a bandwidth-bound link it queues beside CSS, the module chain
+and the series photos, so bytes off the critical path compound.
+
+Above 600px the cover is now fetched **twice**: once as the band for the hero, once as
+the full frame for its slot in the sequence below, where it is `layout[3]`. They shared a
+download before. That is +52 KB of total transfer against −88 KB on the critical path,
+and the sequence copy is `loading="lazy"`, so it is off the critical path entirely — the
+right way round, but worth knowing before someone "fixes" the duplicate by pointing the
+sequence at the band, which would show the crop where the whole frame belongs. Below
+600px nothing changed: one frame, one download, same bytes as before.
+
+Four things hold this together:
+
+- **`checkHeroRatio` pairs every `aspect-ratio` `style.css` declares for `.project-hero
+  img` with the file the `<source>` at that condition actually serves**, in both
+  directions: a band-ratio box whose candidate is the full frame fails, and so does a
+  4:3 box whose candidate is the band. Candidates are matched to files by name against
+  `heroVersions`, not by convention. The base rule must equal `HERO_RATIO`, since it has
+  no condition on which to hang a different file; a media rule declaring another ratio
+  must have a `<source media="…">` for the same condition, and a `<source media="…">`
+  with no rule to match fails too. Deleting the mobile `<source>`, pointing it at the
+  band, deleting the mobile CSS rule while keeping its `<source>`, and pointing the
+  default `<source>` back at the full frame were each confirmed to fail by name.
+- **`HERO_FOCUS_Y` (0.15) mirrors `object-position: center 15%`**, and `checkHeroRatio`
+  asserts that too. Crop from anywhere else and the hero silently reframes. Verified by
+  extracting the same band out of the old full-frame derivative and comparing: 36 dB
+  PSNR, i.e. the same pixels through a second encode. A wrong crop lands around 10–15 dB.
+- **The band is materialised as raw pixels before `extract`**, rather than predicting the
+  resized height. sharp owns that rounding, and being one pixel out is an extract past the
+  edge — a loud build failure — not a quietly different crop. In the steady state, where
+  both bands are already on disk, `generateHeroBand` reads the height back off the file
+  instead: a header read rather than an ~8 MB raw decode on the path `check:generated`
+  always takes, and it reports what the committed file *is*, so the manifest cannot
+  disagree with disk.
+- **A band's identity is the crop it was cut with, not its file name.** `heroVersions`
+  records `ratio` and `focusY`, and the skip gate re-cuts whenever either moves. Without
+  that, the intended way to reframe the hero — `object-position: center 15%` → `30%`
+  alongside `HERO_FOCUS_Y` → `0.30` — left the old band committed with every check green:
+  same width, same height, same ratio, so the manifest, the dimension check, the ratio
+  check and the rendered box all still agreed. Re-cutting fires only on a deliberate
+  change, so CI's steady state still re-encodes nothing and the mozjpeg byte-identity
+  constraint holds.
+- **The e2e asserts the decoded ratio against the rendered box**, not against either
+  file, so a mismatch in either direction fails on whichever viewport has it. Above 600px
+  it additionally pins the `-hero-` prefix on `currentSrc`, since that is where the bytes
+  are. `checkHeroBands` checks each band's dimensions against disk under `--deep`, which
+  `verifyPixels` does not reach.
+
+`heroVersions` costs the **home** page ~400 bytes it fetches and never reads —
+`series-data.json` is one file for both page types. Accepted deliberately: it is
+negligible against the 14 KB module chain, and the home LCP does not wait on that
+manifest at all (the card is hand-written; measured, the cover's paint follows its own
+`responseEnd` by ~15 ms). Splitting the bands into their own file would buy those bytes
+back at the cost of a second manifest, a second fetch on series pages, and another
+generated file for `check:generated` to hold.
+
+There is no `thumb` band on purpose: the hero is full-bleed and never narrower than ~280
+CSS px, so a 400px band could only ever be the *soft* pick.
+
+The home-page series card is **not** cropped this way. It is 4:3 on desktop, where it
+matches the source exactly, and only 16:9 below 1024px. A mobile-only band would need the
+same `media`-switched `<source>` in both `SeriesCardRenderer` and the hand-written copy in
+`index.html`, with `checkHomeCover` holding the two byte-identical, and measures 140 KB →
+109 KB — half the win for more machinery than the hero needed.
+
+## AVIF is not worth it here (measured)
+
+Adding a third `<picture>` rung looks free — `getVersionSrcset` is already parameterised by
+format, so the manifest would carry it with no renderer surgery. But the saving evaporates
+once quality is held equal. The first six photos in manifest order, at 1080w, PSNR
+against the resized original:
+
+| | total bytes | PSNR vs WebP q75 |
+|---|---|---|
+| WebP q75 (shipped) | 629 KB | — |
+| AVIF q60 | 575 KB | higher on all 6 |
+| AVIF q50 | 382 KB | **lower on 5 of 6** |
+
+AVIF q50's −39% is a quality cut, not a free lunch. At the quality AVIF actually matches
+WebP it buys **8.6%** — which does not pay for 54 more files, an extra `<source>` in four
+renderers plus two hand-written pages, and a `currentSrc` assertion in the e2e that
+currently pins WebP. PSNR does under-rate AVIF's perceptual tuning, but not by enough to
+ship a quality regression on a photography portfolio on that argument alone.
+
 ## Preloading the module graph does not work here (measured twice)
 
 `js/main.js` imports config/gallery/series/page, which import utils/exif/lightbox, so the browser spends three round trips discovering files it will certainly need and only then fetches `series-data.json`. The obvious fix is a block of `<link rel="modulepreload">` plus `<link rel="preload" as="fetch" crossorigin>` for the manifests. **It makes LCP worse.** Measured on the deployed site by injecting the hints into the real HTML, with the control served through the same interception:
@@ -209,7 +330,7 @@ Notes:
 - Dependabot (`.github/dependabot.yml`) opens monthly npm + actions update PRs.
 - **There is no `robots.txt`, and adding one here would do nothing.** This deploys to a GitHub Pages *project page*, so the file would be served at `/photograph-portfolio/robots.txt`; crawlers only ever fetch `/robots.txt` at the origin root, which belongs to the separate `apapp45455.github.io` repo. `sitemap.xml` is unaffected — a sitemap may live at any path that covers the URLs it lists, so it ships here and is submitted to Search Console by hand. The same applies to anything else that is origin-root-only.
 
-**Image size tiers** (configured in `generate-gallery.js`):
+**Image size tiers** (configured in `generate-gallery.js`; series covers additionally get a 21:9 `hero` band at the `medium` and `large` widths — see above):
 | Key | Max width |
 |-----|-----------|
 | thumb | 400 px |
