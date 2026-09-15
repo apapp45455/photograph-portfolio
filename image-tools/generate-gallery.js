@@ -209,16 +209,14 @@ class ImageProcessor {
         const band = () => sharp(data, { raw: { width: info.width, height: info.height, channels: info.channels } })
             .extract({ left: 0, top, width: info.width, height });
 
-        // Same skip-unless-FORCE rule as every other derivative, for the same reason:
-        // CI re-runs this generator and diffs, and mozjpeg is not byte-identical
-        // across platforms. Reached only when at least one band is missing, or --force.
-        if (FORCE || !cutWithCurrentCrop || !fs.existsSync(webpPath)) {
-            await band().webp({ quality: CONFIG.WEBP_QUALITY, effort: CONFIG.WEBP_EFFORT }).toFile(webpPath);
-        }
-
-        if (FORCE || !cutWithCurrentCrop || !fs.existsSync(jpgPath)) {
-            await band().jpeg({ quality: CONFIG.JPEG_QUALITY, mozjpeg: true }).toFile(jpgPath);
-        }
+        // Both formats, unconditionally. The skip above already returned for the steady
+        // state, so reaching here means --force, a moved crop, or a missing file — and
+        // in all three the two formats have to come out of the *same* cut. Rewriting
+        // only the missing one would leave the survivor uncompared against the height
+        // this run just recomputed. CI never reaches here, so mozjpeg's cross-platform
+        // byte difference still never comes up.
+        await band().webp({ quality: CONFIG.WEBP_QUALITY, effort: CONFIG.WEBP_EFFORT }).toFile(webpPath);
+        await band().jpeg({ quality: CONFIG.JPEG_QUALITY, mozjpeg: true }).toFile(jpgPath);
 
         return {
             jpg: `${CONFIG.DIRECTORIES.OPTIMIZED}/${jpgName}`,

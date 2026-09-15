@@ -193,10 +193,15 @@ sequence at the band, which would show the crop where the whole frame belongs. B
 Four things hold this together:
 
 - **`checkHeroRatio` pairs every `aspect-ratio` `style.css` declares for `.project-hero
-  img` with the `<source>` that serves a matching file.** The base rule must equal
-  `HERO_RATIO`; a media query declaring a different ratio must have a `<source
-  media="…">` for the same condition in every series page. Deleting the mobile
-  `<source>` reproduces the bug above and fails this check by name.
+  img` with the file the `<source>` at that condition actually serves**, in both
+  directions: a band-ratio box whose candidate is the full frame fails, and so does a
+  4:3 box whose candidate is the band. Candidates are matched to files by name against
+  `heroVersions`, not by convention. The base rule must equal `HERO_RATIO`, since it has
+  no condition on which to hang a different file; a media rule declaring another ratio
+  must have a `<source media="…">` for the same condition, and a `<source media="…">`
+  with no rule to match fails too. Deleting the mobile `<source>`, pointing it at the
+  band, deleting the mobile CSS rule while keeping its `<source>`, and pointing the
+  default `<source>` back at the full frame were each confirmed to fail by name.
 - **`HERO_FOCUS_Y` (0.15) mirrors `object-position: center 15%`**, and `checkHeroRatio`
   asserts that too. Crop from anywhere else and the hero silently reframes. Verified by
   extracting the same band out of the old full-frame derivative and comparing: 36 dB
@@ -221,6 +226,14 @@ Four things hold this together:
   it additionally pins the `-hero-` prefix on `currentSrc`, since that is where the bytes
   are. `checkHeroBands` checks each band's dimensions against disk under `--deep`, which
   `verifyPixels` does not reach.
+
+`heroVersions` costs the **home** page ~400 bytes it fetches and never reads —
+`series-data.json` is one file for both page types. Accepted deliberately: it is
+negligible against the 14 KB module chain, and the home LCP does not wait on that
+manifest at all (the card is hand-written; measured, the cover's paint follows its own
+`responseEnd` by ~15 ms). Splitting the bands into their own file would buy those bytes
+back at the cost of a second manifest, a second fetch on series pages, and another
+generated file for `check:generated` to hold.
 
 There is no `thumb` band on purpose: the hero is full-bleed and never narrower than ~280
 CSS px, so a 400px band could only ever be the *soft* pick.

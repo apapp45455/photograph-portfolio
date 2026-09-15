@@ -360,63 +360,121 @@ function checkHeroRatio() {
         return;
     }
 
-    const pages = listFiles(CONFIG.PROJECTS).filter((file) => file.endsWith('.html'));
     const squash = (value) => value.replace(/\s+/g, ' ').trim();
+    const isBandRatio = (value) => Math.abs(value - GENERATOR.HERO_RATIO) < 1e-6;
 
+    // Every band file any series committed, by basename. This is what makes the check
+    // bidirectional: a candidate either names one of these or it does not, so a rule's
+    // ratio can be held against the *file* served at that condition rather than against
+    // the mere existence of a <source>.
+    const bandFiles = new Set();
+    if (fs.existsSync(CONFIG.SERIES_DATA)) {
+        try {
+            for (const entry of JSON.parse(fs.readFileSync(CONFIG.SERIES_DATA, 'utf8'))) {
+                for (const version of Object.values(entry.heroVersions || {})) {
+                    for (const format of ['jpg', 'webp']) {
+                        if (version[format]) bandFiles.add(norm(path.basename(version[format])));
+                    }
+                }
+            }
+        } catch {
+            return; // checkSeries already reported the parse failure
+        }
+    }
+    if (bandFiles.size === 0) return; // no bands committed yet; checkHeroBands reports it
+
+    const boxes = [];
     let sawBandRule = false;
 
     for (const rule of rules) {
         const declared = /aspect-ratio\s*:\s*([\d.]+)\s*\/\s*([\d.]+)/.exec(rule.body);
         if (!declared) continue;
 
-        const value = Number(declared[1]) / Number(declared[2]);
+        const ratio = Number(declared[1]) / Number(declared[2]);
         const where = rule.media ? `@media ${rule.media}` : 'the base rule';
+        boxes.push({ media: rule.media && squash(rule.media), ratio, where });
 
-        if (Math.abs(value - GENERATOR.HERO_RATIO) < 1e-6) {
-            sawBandRule = true;
-
-            // Only meaningful where the band is actually served: it records which band
-            // generateHeroBand cut, so a drift here reframes the hero with nothing else
-            // noticing.
-            const position = /object-position\s*:\s*([^;}]+)/.exec(rule.body);
-            if (position) {
-                // Y is the second component, not the first percentage in the string:
-                // `50% 15%` means the same as `center 15%`, and reading left to right
-                // takes 50 out of it. A lone keyword names its own axis; a lone
-                // percentage is X, leaving Y at center.
-                const VERTICAL = { top: 0, center: 50, bottom: 100 };
-                const tokens = position[1].trim().toLowerCase().split(/\s+/);
-                const yToken = tokens[1] ?? (tokens[0] in VERTICAL ? tokens[0] : 'center');
-                const y = yToken.endsWith('%') ? Number(yToken.slice(0, -1)) : VERTICAL[yToken];
-
-                if (y === undefined || Number.isNaN(y)) {
-                    fail(`${CONFIG.STYLE} (${where}): object-position "${squash(position[1])}" has no Y this can compare — write it as a percentage, since HERO_FOCUS_Y is what the band was cut at`);
-                } else if (Math.abs(y / 100 - GENERATOR.HERO_FOCUS_Y) > 1e-6) {
-                    fail(`${CONFIG.STYLE} (${where}): object-position Y is ${y}%, HERO_FOCUS_Y is ${GENERATOR.HERO_FOCUS_Y * 100}% — the band is cut somewhere else than it is shown`);
-                }
+        if (!isBandRatio(ratio)) {
+            // A box that is not the band's needs a file that is not the band, and the
+            // only way to serve one is a <source> for the same condition. The base rule
+            // has no condition to hang that on, so it must be the band's ratio.
+            if (!rule.media) {
+                fail(`${CONFIG.STYLE}: ".project-hero img" is aspect-ratio ${squash(declared[0].split(':')[1])}, but the band is cut at ${GENERATOR.HERO_RATIO.toFixed(4)} — the hero would be cover-cropped`);
             }
             continue;
         }
 
-        // A different box needs a different file, named on a <source> for the same
-        // condition. Without one the band is cover-cropped into it.
-        if (!rule.media) {
-            fail(`${CONFIG.STYLE}: ".project-hero img" is aspect-ratio ${squash(declared[0].split(':')[1])}, but the band is cut at ${GENERATOR.HERO_RATIO.toFixed(4)} — the hero would be cover-cropped`);
-            continue;
-        }
+        sawBandRule = true;
 
-        for (const page of pages) {
-            const html = fs.readFileSync(path.join(CONFIG.PROJECTS, page), 'utf8');
-            const served = /<source\b[^>]*\bmedia="([^"]+)"/g;
-            const conditions = [...html.matchAll(served)].map((match) => squash(match[1]));
-            if (!conditions.includes(squash(rule.media))) {
-                fail(`${CONFIG.PROJECTS}/${page}: ${CONFIG.STYLE} gives ".project-hero img" a different ratio at ${where}, but no <source media="${squash(rule.media)}"> serves a file for it — the band is cover-cropped and upscaled there`);
+        // Only meaningful where the band is actually served: it records which band
+        // generateHeroBand cut, so a drift here reframes the hero with nothing else
+        // noticing.
+        const position = /object-position\s*:\s*([^;}]+)/.exec(rule.body);
+        if (position) {
+            // Y is the second component, not the first percentage in the string:
+            // `50% 15%` means the same as `center 15%`, and reading left to right
+            // takes 50 out of it. A lone keyword names its own axis; a lone
+            // percentage is X, leaving Y at center.
+            const VERTICAL = { top: 0, center: 50, bottom: 100 };
+            const tokens = position[1].trim().toLowerCase().split(/\s+/);
+            const yToken = tokens[1] ?? (tokens[0] in VERTICAL ? tokens[0] : 'center');
+            const y = yToken.endsWith('%') ? Number(yToken.slice(0, -1)) : VERTICAL[yToken];
+
+            if (y === undefined || Number.isNaN(y)) {
+                fail(`${CONFIG.STYLE} (${where}): object-position "${squash(position[1])}" has no Y this can compare — write it as a percentage, since HERO_FOCUS_Y is what the band was cut at`);
+            } else if (Math.abs(y / 100 - GENERATOR.HERO_FOCUS_Y) > 1e-6) {
+                fail(`${CONFIG.STYLE} (${where}): object-position Y is ${y}%, HERO_FOCUS_Y is ${GENERATOR.HERO_FOCUS_Y * 100}% — the band is cut somewhere else than it is shown`);
             }
         }
     }
 
     if (!sawBandRule) {
         fail(`${CONFIG.STYLE}: no ".project-hero img" rule declares aspect-ratio ${GENERATOR.HERO_RATIO.toFixed(4)} — nothing shows the band the generator cuts`);
+        return;
+    }
+
+    // The base rule applies wherever no media override does, so it is the fallback box
+    // for any candidate without a `media` attribute.
+    const baseBox = boxes.find((box) => !box.media);
+
+    for (const page of listFiles(CONFIG.PROJECTS).filter((file) => file.endsWith('.html'))) {
+        const html = fs.readFileSync(path.join(CONFIG.PROJECTS, page), 'utf8');
+        const picture = /<div class="project-hero">[\s\S]*?<\/picture>/.exec(html)?.[0];
+        if (!picture) continue;
+
+        // <source>s plus the <img> that ends the fallback chain: each is a candidate the
+        // browser can land on, and each has to agree with the box it lands in.
+        const candidates = [...picture.matchAll(/<(source|img)\b([^>]*)>/g)].map((match) => ({
+            tag: match[1],
+            media: /\bmedia="([^"]+)"/.exec(match[2])?.[1],
+            srcset: /\bsrcset="([^"]+)"/.exec(match[2])?.[1] || /\bsrc="([^"]+)"/.exec(match[2])?.[1] || ''
+        }));
+
+        const seenConditions = new Set();
+
+        for (const candidate of candidates) {
+            const condition = candidate.media && squash(candidate.media);
+            if (condition) seenConditions.add(condition);
+
+            const box = condition ? boxes.find((entry) => entry.media === condition) : baseBox;
+            if (!box) {
+                fail(`${CONFIG.PROJECTS}/${page}: <${candidate.tag} media="${condition}"> has no matching ".project-hero img" rule in ${CONFIG.STYLE} — it serves a file for a box that is not declared anywhere`);
+                continue;
+            }
+
+            const servesBand = [...bandFiles].some((file) => norm(candidate.srcset).includes(file));
+            if (isBandRatio(box.ratio) && !servesBand) {
+                fail(`${CONFIG.PROJECTS}/${page}: ${box.where} makes the hero box ${GENERATOR.HERO_RATIO.toFixed(4)}, but this <${candidate.tag}> serves the full frame — 43% of it would be downloaded and cover-cropped away`);
+            } else if (!isBandRatio(box.ratio) && servesBand) {
+                fail(`${CONFIG.PROJECTS}/${page}: ${box.where} makes the hero box ${box.ratio.toFixed(4)}, but this <${candidate.tag}> serves the band — it would be cover-cropped on the sides and upscaled`);
+            }
+        }
+
+        for (const box of boxes) {
+            if (box.media && !seenConditions.has(box.media)) {
+                fail(`${CONFIG.PROJECTS}/${page}: ${CONFIG.STYLE} gives ".project-hero img" a different ratio at ${box.where}, but no <source media="${box.media}"> serves a file for it — the band is cover-cropped and upscaled there`);
+            }
+        }
     }
 }
 
