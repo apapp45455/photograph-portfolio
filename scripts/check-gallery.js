@@ -252,6 +252,7 @@ async function checkHeroBands(optimizedFiles, referencedOptimized) {
         for (const [tier, version] of Object.entries(entry.heroVersions)) {
             if (!version.width || !version.height) {
                 fail(`${label}/hero ${tier}: missing width/height — the page types both into the <img>`);
+                continue; // a malformed entry is not a stale derivative; --force is the wrong remedy
             }
 
             for (const format of ['jpg', 'webp']) {
@@ -275,9 +276,13 @@ async function checkHeroBands(optimizedFiles, referencedOptimized) {
                 // wrong height straight into the LCP element.
                 if (DEEP) {
                     const sharp = require('sharp');
-                    const meta = await sharp(relPath).metadata();
-                    if (meta.width !== version.width || meta.height !== version.height) {
-                        fail(`${relPath}: file is ${meta.width}x${meta.height}, manifest declares ${version.width}x${version.height} — run \`npm run build:gallery -- --force\``);
+                    try {
+                        const meta = await sharp(relPath).metadata();
+                        if (meta.width !== version.width || meta.height !== version.height) {
+                            fail(`${relPath}: file is ${meta.width}x${meta.height}, manifest declares ${version.width}x${version.height} — run \`npm run build:gallery -- --force\``);
+                        }
+                    } catch (error) {
+                        fail(`${relPath}: unreadable image (${error.message})`);
                     }
                 }
             }

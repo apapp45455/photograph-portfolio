@@ -165,25 +165,37 @@ class ImageProcessor {
      * a predicted height: sharp owns the rounding, and being one pixel out here is an
      * `extract` past the edge, not a slightly different crop.
      */
-    static async generateHeroBand(filePath, baseName, sizeName, targetWidth) {
+    static async generateHeroBand(filePath, baseName, sizeName, targetWidth, committed) {
         const jpgName = `${baseName}-hero-${sizeName}.jpg`;
         const webpName = `${baseName}-hero-${sizeName}.webp`;
         const jpgPath = path.join(CONFIG.DIRECTORIES.OPTIMIZED, jpgName);
         const webpPath = path.join(CONFIG.DIRECTORIES.OPTIMIZED, webpName);
 
-        // Steady state: both bands are committed and there is nothing to write. Read
-        // the height back off the file instead of re-deriving it — a header read, not
-        // the ~8MB raw decode below, on the one path that always runs (CI's
-        // check:generated regenerates into exactly this state). It is also the more
-        // honest number: it reports what the committed file *is*, so the manifest
-        // cannot quietly disagree with disk when HERO_RATIO moves without --force.
-        if (!FORCE && fs.existsSync(webpPath) && fs.existsSync(jpgPath)) {
+        // A band's identity is the crop it was cut with, not just its file name. Two
+        // bands at the same width and ratio but different HERO_FOCUS_Y are the same
+        // size, so the manifest, the dimension check and the rendered box all still
+        // agree — a reframe would otherwise ship with every check green and nothing
+        // holding the old pixels to account. Comparing the committed parameters makes
+        // it rebuild itself, with no --force to remember. In the steady state they
+        // match, so CI re-encodes nothing and mozjpeg's cross-platform byte difference
+        // never comes up.
+        const cutWithCurrentCrop = committed
+            && committed.ratio === CONFIG.HERO_RATIO
+            && committed.focusY === CONFIG.HERO_FOCUS_Y;
+
+        // Nothing to write: read the height back off the file rather than re-deriving
+        // it — a header read, not the ~8MB raw decode below, on the one path that
+        // always runs (CI's check:generated regenerates into exactly this state). It is
+        // also the more honest number, since it reports what the committed file is.
+        if (!FORCE && cutWithCurrentCrop && fs.existsSync(webpPath) && fs.existsSync(jpgPath)) {
             const { height } = await sharp(webpPath).metadata();
             return {
                 jpg: `${CONFIG.DIRECTORIES.OPTIMIZED}/${jpgName}`,
                 webp: `${CONFIG.DIRECTORIES.OPTIMIZED}/${webpName}`,
                 width: targetWidth,
-                height
+                height,
+                ratio: CONFIG.HERO_RATIO,
+                focusY: CONFIG.HERO_FOCUS_Y
             };
         }
 
@@ -197,11 +209,11 @@ class ImageProcessor {
         // Same skip-unless-FORCE rule as every other derivative, for the same reason:
         // CI re-runs this generator and diffs, and mozjpeg is not byte-identical
         // across platforms. Reached only when at least one band is missing, or --force.
-        if (FORCE || !fs.existsSync(webpPath)) {
+        if (FORCE || !cutWithCurrentCrop || !fs.existsSync(webpPath)) {
             await band().webp({ quality: CONFIG.WEBP_QUALITY, effort: CONFIG.WEBP_EFFORT }).toFile(webpPath);
         }
 
-        if (FORCE || !fs.existsSync(jpgPath)) {
+        if (FORCE || !cutWithCurrentCrop || !fs.existsSync(jpgPath)) {
             await band().jpeg({ quality: CONFIG.JPEG_QUALITY, mozjpeg: true }).toFile(jpgPath);
         }
 
@@ -209,7 +221,9 @@ class ImageProcessor {
             jpg: `${CONFIG.DIRECTORIES.OPTIMIZED}/${jpgName}`,
             webp: `${CONFIG.DIRECTORIES.OPTIMIZED}/${webpName}`,
             width: targetWidth,
-            height
+            height,
+            ratio: CONFIG.HERO_RATIO,
+            focusY: CONFIG.HERO_FOCUS_Y
         };
     }
 }
@@ -354,10 +368,25 @@ class GalleryGenerator {
             // Hero bands are generated here rather than inside build(), which stays a
             // pure transform of the manifest: this is the one step that needs to know
             // which photo ended up as a cover *and* touch the disk.
+            // The committed manifest, read before it is overwritten: it carries the crop
+            // each band on disk was actually cut with, which is the only way to tell a
+            // current band from a same-sized stale one.
+            const committedBands = new Map();
+            if (fs.existsSync(CONFIG.DIRECTORIES.SERIES_OUTPUT)) {
+                try {
+                    for (const entry of JSON.parse(fs.readFileSync(CONFIG.DIRECTORIES.SERIES_OUTPUT, 'utf8'))) {
+                        committedBands.set(entry.id, entry.heroVersions || {});
+                    }
+                } catch {
+                    // Missing or malformed: every band counts as unknown and is re-cut.
+                }
+            }
+
             for (const series of seriesData) {
                 if (!series.cover) continue;
                 const baseName = path.parse(series.cover.filename).name;
                 const filePath = path.join(CONFIG.DIRECTORIES.IMAGES, series.cover.filename);
+                const committed = committedBands.get(series.id) || {};
                 series.heroVersions = {};
                 for (const [sizeName, version] of Object.entries(series.cover.versions)) {
                     // No thumb band. The hero is full-bleed and never narrower than
@@ -365,7 +394,7 @@ class GalleryGenerator {
                     // the page offers medium and large, same as it did uncropped.
                     if (sizeName === 'thumb') continue;
                     series.heroVersions[sizeName] =
-                        await ImageProcessor.generateHeroBand(filePath, baseName, sizeName, version.width);
+                        await ImageProcessor.generateHeroBand(filePath, baseName, sizeName, version.width, committed[sizeName]);
                 }
             }
 

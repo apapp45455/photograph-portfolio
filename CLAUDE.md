@@ -200,6 +200,14 @@ Four things hold this together:
   instead: a header read rather than an ~8 MB raw decode on the path `check:generated`
   always takes, and it reports what the committed file *is*, so the manifest cannot
   disagree with disk.
+- **A band's identity is the crop it was cut with, not its file name.** `heroVersions`
+  records `ratio` and `focusY`, and the skip gate re-cuts whenever either moves. Without
+  that, the intended way to reframe the hero — `object-position: center 15%` → `30%`
+  alongside `HERO_FOCUS_Y` → `0.30` — left the old band committed with every check green:
+  same width, same height, same ratio, so the manifest, the dimension check, the ratio
+  check and the rendered box all still agreed. Re-cutting fires only on a deliberate
+  change, so CI's steady state still re-encodes nothing and the mozjpeg byte-identity
+  constraint holds.
 - **The e2e asserts the decoded ratio against the rendered box**, not against either
   file, so a mismatch in either direction fails on whichever viewport has it. Above 600px
   it additionally pins the `-hero-` prefix on `currentSrc`, since that is where the bytes
