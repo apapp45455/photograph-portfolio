@@ -378,9 +378,22 @@ function checkHeroRatio() {
             // Only meaningful where the band is actually served: it records which band
             // generateHeroBand cut, so a drift here reframes the hero with nothing else
             // noticing.
-            const focus = /object-position\s*:\s*[^;]*?([\d.]+)%/.exec(rule.body);
-            if (focus && Math.abs(Number(focus[1]) / 100 - GENERATOR.HERO_FOCUS_Y) > 1e-6) {
-                fail(`${CONFIG.STYLE} (${where}): object-position Y is ${focus[1]}%, HERO_FOCUS_Y is ${GENERATOR.HERO_FOCUS_Y * 100}% — the band is cut somewhere else than it is shown`);
+            const position = /object-position\s*:\s*([^;}]+)/.exec(rule.body);
+            if (position) {
+                // Y is the second component, not the first percentage in the string:
+                // `50% 15%` means the same as `center 15%`, and reading left to right
+                // takes 50 out of it. A lone keyword names its own axis; a lone
+                // percentage is X, leaving Y at center.
+                const VERTICAL = { top: 0, center: 50, bottom: 100 };
+                const tokens = position[1].trim().toLowerCase().split(/\s+/);
+                const yToken = tokens[1] ?? (tokens[0] in VERTICAL ? tokens[0] : 'center');
+                const y = yToken.endsWith('%') ? Number(yToken.slice(0, -1)) : VERTICAL[yToken];
+
+                if (y === undefined || Number.isNaN(y)) {
+                    fail(`${CONFIG.STYLE} (${where}): object-position "${squash(position[1])}" has no Y this can compare — write it as a percentage, since HERO_FOCUS_Y is what the band was cut at`);
+                } else if (Math.abs(y / 100 - GENERATOR.HERO_FOCUS_Y) > 1e-6) {
+                    fail(`${CONFIG.STYLE} (${where}): object-position Y is ${y}%, HERO_FOCUS_Y is ${GENERATOR.HERO_FOCUS_Y * 100}% — the band is cut somewhere else than it is shown`);
+                }
             }
             continue;
         }

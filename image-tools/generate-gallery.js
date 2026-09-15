@@ -22,12 +22,15 @@ const CONFIG = {
         medium: 1080,
         large: 1920
     },
-    // The series hero is a 21:9 band of the cover — see `.project-hero img` in
-    // style.css. Letting object-fit crop it at render time means downloading the 43%
-    // of the frame that is then thrown away, on the one image that *is* the LCP
-    // element of every series page: 140KB against 85KB at 1080w, for pixels nobody
-    // sees. HERO_FOCUS_Y mirrors `object-position: center 15%` — the band has to come
-    // from the same place, or the hero reframes the moment the crop ships.
+    // The 21:9 band of a series cover, for the viewports whose hero box is 21:9 —
+    // above 600px, per `.project-hero img` in style.css. object-fit crops at render
+    // time, so without the band those viewports download the 43% of the frame that is
+    // then discarded, on the one image that *is* the LCP element of every series page:
+    // 140KB against 52KB at 1080w, for pixels nobody sees. At 600px and below the box
+    // is the source's own 4:3 and the page serves the full frame instead — there is
+    // nothing to crop there, and a band would be cover-cropped on the sides.
+    // HERO_FOCUS_Y mirrors `object-position: center 15%`: the band has to come from
+    // the same place, or the hero reframes. checkHeroRatio holds both to style.css.
     HERO_RATIO: 21 / 9,
     HERO_FOCUS_Y: 0.15,
     JPEG_QUALITY: 80,

@@ -182,6 +182,14 @@ signal. The drop is far larger than the 251 KB alone buys because the hero does 
 download in isolation — on a bandwidth-bound link it queues beside CSS, the module chain
 and the series photos, so bytes off the critical path compound.
 
+Above 600px the cover is now fetched **twice**: once as the band for the hero, once as
+the full frame for its slot in the sequence below, where it is `layout[3]`. They shared a
+download before. That is +52 KB of total transfer against −88 KB on the critical path,
+and the sequence copy is `loading="lazy"`, so it is off the critical path entirely — the
+right way round, but worth knowing before someone "fixes" the duplicate by pointing the
+sequence at the band, which would show the crop where the whole frame belongs. Below
+600px nothing changed: one frame, one download, same bytes as before.
+
 Four things hold this together:
 
 - **`checkHeroRatio` pairs every `aspect-ratio` `style.css` declares for `.project-hero
