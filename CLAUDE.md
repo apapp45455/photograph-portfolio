@@ -142,6 +142,69 @@ every run with no overlap in range; CLS 0 → 0.0001, and the cover is still req
 `replaceChildren` swaps in an identical `<picture>`, so nothing is re-fetched. The measurement was
 re-run against the committed file, not the injected copy. Numbers above the table predate that change.
 
+## The series hero is cropped at build time, not by `object-fit`
+
+`.project-hero img` is `aspect-ratio: 21 / 9` with `object-fit: cover` over a 4:3 source,
+so the browser was downloading the full frame and discarding 43% of it — on the one image
+that *is* the LCP element of every series page. `generate-gallery.js` now emits a
+`<name>-hero-<tier>.{jpg,webp}` band per series cover, and `projects/japan.html` points at
+those. Same pixels on screen, fewer over the wire:
+
+| | 1080w | 1920w |
+|---|---|---|
+| Full frame (was) | 140 KB | 382 KB |
+| 21:9 band (now) | 52 KB | 131 KB |
+
+The band beats a naive 43%-of-the-area estimate because `object-position: center 15%` takes
+it from the top of the frame, which here is mostly sky — low entropy, cheap to encode.
+
+Local serve, Pixel 5, Slow 4G + 4× CPU, 4 paired runs, median LCP **8672 ms → 3760 ms
+(−4912 ms)**, winning every run with no overlap. The drop is larger than the 88 KB alone
+buys because the hero is not downloading in isolation: on a bandwidth-bound link it queues
+behind and beside CSS, the module chain and the series photos, so bytes removed from the
+critical path compound.
+
+Two things hold this together:
+
+- **`HERO_FOCUS_Y` (0.15) mirrors `object-position: center 15%`.** Crop from anywhere else
+  and the hero silently reframes. Verified by extracting the same band out of the old
+  full-frame derivative and comparing: 36 dB PSNR, i.e. the same pixels through a second
+  encode. A wrong crop lands around 10–15 dB.
+- **The band is materialised as raw pixels before `extract`**, rather than predicting the
+  resized height. sharp owns that rounding, and being one pixel out is an extract past the
+  edge — a loud build failure — not a quietly different crop.
+
+There is no `thumb` band on purpose: the hero is full-bleed and never narrower than ~280
+CSS px, so a 400px band could only ever be the *soft* pick. `checkHeroBands` in
+`scripts/check-gallery.js` ties `heroVersions` to files on disk and keeps the orphan sweep
+honest; the e2e asserts the page's `src` carries the `-hero-` prefix and that its
+`width`/`height` match `heroVersions`, so pointing the page back at the full frame — which
+renders identically and costs 140 KB — fails the suite.
+
+The home-page series card is **not** cropped this way. It is 4:3 on desktop, where it
+matches the source exactly, and only 16:9 below 1024px. A mobile-only band would need a
+`media`-switched `<source>` in both `SeriesCardRenderer` and the hand-written copy in
+`index.html`, with `checkHomeCover` holding the two byte-identical, and measures 140 KB →
+109 KB — half the win for more machinery than the hero needed.
+
+## AVIF is not worth it here (measured)
+
+Adding a third `<picture>` rung looks free — `getVersionSrcset` is already parameterised by
+format, so the manifest would carry it with no renderer surgery. But the saving evaporates
+once quality is held equal. Six photos at 1080w, PSNR against the resized original:
+
+| | total bytes | PSNR vs WebP q75 |
+|---|---|---|
+| WebP q75 (shipped) | 629 KB | — |
+| AVIF q60 | 575 KB | higher on all 6 |
+| AVIF q50 | 382 KB | **lower on 5 of 6** |
+
+AVIF q50's −39% is a quality cut, not a free lunch. At the quality AVIF actually matches
+WebP it buys **8.6%** — which does not pay for 54 more files, an extra `<source>` in four
+renderers plus two hand-written pages, and a `currentSrc` assertion in the e2e that
+currently pins WebP. PSNR does under-rate AVIF's perceptual tuning, but not by enough to
+ship a quality regression on a photography portfolio on that argument alone.
+
 ## Preloading the module graph does not work here (measured twice)
 
 `js/main.js` imports config/gallery/series/page, which import utils/exif/lightbox, so the browser spends three round trips discovering files it will certainly need and only then fetches `series-data.json`. The obvious fix is a block of `<link rel="modulepreload">` plus `<link rel="preload" as="fetch" crossorigin>` for the manifests. **It makes LCP worse.** Measured on the deployed site by injecting the hints into the real HTML, with the control served through the same interception:
@@ -209,7 +272,7 @@ Notes:
 - Dependabot (`.github/dependabot.yml`) opens monthly npm + actions update PRs.
 - **There is no `robots.txt`, and adding one here would do nothing.** This deploys to a GitHub Pages *project page*, so the file would be served at `/photograph-portfolio/robots.txt`; crawlers only ever fetch `/robots.txt` at the origin root, which belongs to the separate `apapp45455.github.io` repo. `sitemap.xml` is unaffected — a sitemap may live at any path that covers the URLs it lists, so it ships here and is submitted to Search Console by hand. The same applies to anything else that is origin-root-only.
 
-**Image size tiers** (configured in `generate-gallery.js`):
+**Image size tiers** (configured in `generate-gallery.js`; series covers additionally get a 21:9 `hero` band at the `medium` and `large` widths — see above):
 | Key | Max width |
 |-----|-----------|
 | thumb | 400 px |

@@ -22,6 +22,14 @@ const CONFIG = {
         medium: 1080,
         large: 1920
     },
+    // The series hero is a 21:9 band of the cover — see `.project-hero img` in
+    // style.css. Letting object-fit crop it at render time means downloading the 43%
+    // of the frame that is then thrown away, on the one image that *is* the LCP
+    // element of every series page: 140KB against 85KB at 1080w, for pixels nobody
+    // sees. HERO_FOCUS_Y mirrors `object-position: center 15%` — the band has to come
+    // from the same place, or the hero reframes the moment the crop ships.
+    HERO_RATIO: 21 / 9,
+    HERO_FOCUS_Y: 0.15,
     JPEG_QUALITY: 80,
     // WebP at the JPEG's quality number was the wrong dial: it produced files larger
     // than the mozjpeg fallback for 5 of 18 photos at medium and large, so <picture>
@@ -145,6 +153,47 @@ class ImageProcessor {
             jpg: `${CONFIG.DIRECTORIES.OPTIMIZED}/${jpgName}`,
             webp: `${CONFIG.DIRECTORIES.OPTIMIZED}/${webpName}`,
             width: targetWidth
+        };
+    }
+
+    /**
+     * The 21:9 band of a series cover, pre-cropped so the browser never downloads the
+     * part `object-fit: cover` discards. Generated only for covers — a band of all 18
+     * photos would be dead weight, since nothing but a hero ever renders one.
+     *
+     * The resize is materialised as raw pixels before extracting rather than trusting
+     * a predicted height: sharp owns the rounding, and being one pixel out here is an
+     * `extract` past the edge, not a slightly different crop.
+     */
+    static async generateHeroBand(filePath, baseName, sizeName, targetWidth) {
+        const jpgName = `${baseName}-hero-${sizeName}.jpg`;
+        const webpName = `${baseName}-hero-${sizeName}.webp`;
+        const jpgPath = path.join(CONFIG.DIRECTORIES.OPTIMIZED, jpgName);
+        const webpPath = path.join(CONFIG.DIRECTORIES.OPTIMIZED, webpName);
+
+        const { data, info } = await sharp(filePath)
+            .rotate().resize(targetWidth).raw().toBuffer({ resolveWithObject: true });
+        const height = Math.min(Math.round(targetWidth / CONFIG.HERO_RATIO), info.height);
+        const top = Math.round((info.height - height) * CONFIG.HERO_FOCUS_Y);
+        const band = () => sharp(data, { raw: { width: info.width, height: info.height, channels: info.channels } })
+            .extract({ left: 0, top, width: info.width, height });
+
+        // Same skip-unless-FORCE rule as every other derivative, for the same reason:
+        // CI re-runs this generator and diffs, and mozjpeg is not byte-identical
+        // across platforms.
+        if (FORCE || !fs.existsSync(webpPath)) {
+            await band().webp({ quality: CONFIG.WEBP_QUALITY, effort: CONFIG.WEBP_EFFORT }).toFile(webpPath);
+        }
+
+        if (FORCE || !fs.existsSync(jpgPath)) {
+            await band().jpeg({ quality: CONFIG.JPEG_QUALITY, mozjpeg: true }).toFile(jpgPath);
+        }
+
+        return {
+            jpg: `${CONFIG.DIRECTORIES.OPTIMIZED}/${jpgName}`,
+            webp: `${CONFIG.DIRECTORIES.OPTIMIZED}/${webpName}`,
+            width: targetWidth,
+            height
         };
     }
 }
@@ -285,6 +334,24 @@ class GalleryGenerator {
             }
 
             const seriesData = catalog.build(galleryData);
+
+            // Hero bands are generated here rather than inside build(), which stays a
+            // pure transform of the manifest: this is the one step that needs to know
+            // which photo ended up as a cover *and* touch the disk.
+            for (const series of seriesData) {
+                if (!series.cover) continue;
+                const baseName = path.parse(series.cover.filename).name;
+                const filePath = path.join(CONFIG.DIRECTORIES.IMAGES, series.cover.filename);
+                series.heroVersions = {};
+                for (const [sizeName, version] of Object.entries(series.cover.versions)) {
+                    // No thumb band. The hero is full-bleed and never narrower than
+                    // ~280 CSS px, so a 400px band could only ever be the *soft* pick;
+                    // the page offers medium and large, same as it did uncropped.
+                    if (sizeName === 'thumb') continue;
+                    series.heroVersions[sizeName] =
+                        await ImageProcessor.generateHeroBand(filePath, baseName, sizeName, version.width);
+                }
+            }
 
             fs.writeFileSync(CONFIG.DIRECTORIES.DATA_OUTPUT, JSON.stringify(galleryData, null, 2));
             fs.writeFileSync(CONFIG.DIRECTORIES.SERIES_OUTPUT, JSON.stringify(seriesData, null, 2));

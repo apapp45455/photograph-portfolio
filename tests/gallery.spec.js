@@ -928,14 +928,22 @@ for (const series of seriesData) {
             // The hero is the one hand-written part of a series page: its paths and
             // width/height are typed in, not generated. Tie both to the manifest so a
             // re-crop or a changed `cover` cannot leave it silently stale.
-            const coverBase = series.cover.filename.replace(/\.[^/.]+$/, '');
-            expect(await hero.getAttribute('src')).toContain(`${coverBase}-`);
+            // The hero is not the cover frame, it is the cover's 21:9 band — a separate
+            // derivative cropped by generate-gallery.js so the 43% object-fit would
+            // discard is never downloaded. Assert against heroVersions rather than
+            // cover.aspectRatio: those two ratios differ by design now, and pinning the
+            // band prefix is what notices if the page is pointed back at the full frame,
+            // which still renders identically and costs 140KB instead of 52KB.
+            const band = series.heroVersions.large;
+            const bandBase = band.jpg.replace(/^.*\//, '').replace(/-large\.jpg$/, '');
+            expect(await hero.getAttribute('src')).toContain(bandBase);
 
+            const bandRatio = band.width / band.height;
             const declared = await hero.evaluate((img) => Number(img.getAttribute('width')) / Number(img.getAttribute('height')));
-            expect(declared).toBeCloseTo(series.cover.aspectRatio, 2);
+            expect(declared).toBeCloseTo(bandRatio, 2);
 
             const decoded = await hero.evaluate((img) => img.naturalWidth / img.naturalHeight);
-            expect(decoded).toBeCloseTo(series.cover.aspectRatio, 2);
+            expect(decoded).toBeCloseTo(bandRatio, 2);
 
             // The hero is the one srcset in the repo that getVersionSrcset never touches
             // — it is typed into the page — so the escaping fix cannot protect it. A

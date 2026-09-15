@@ -221,6 +221,54 @@ function checkSeriesSource(data) {
  * has to exist. Otherwise a photo silently disappears from the site — it is absent
  * from the home grid *and* from the series page.
  */
+/**
+ * Hero band derivatives: generated from the cover, named in series-data.json as
+ * `heroVersions`, and referenced nowhere else but the hand-written <img> on each
+ * series page. Registering them keeps the orphan sweep honest; the existence check
+ * catches a series-data.json committed without the files it names.
+ */
+function checkHeroBands(optimizedFiles, referencedOptimized) {
+    if (!fs.existsSync(CONFIG.SERIES_DATA)) return;
+
+    let series;
+    try {
+        series = JSON.parse(fs.readFileSync(CONFIG.SERIES_DATA, 'utf8'));
+    } catch {
+        return; // checkSeries already reported the parse failure
+    }
+    if (!Array.isArray(series)) return;
+
+    for (const entry of series) {
+        if (!entry || !entry.cover) continue;
+        const label = `series "${entry.id}"`;
+
+        if (!entry.heroVersions || Object.keys(entry.heroVersions).length === 0) {
+            fail(`${label}: no heroVersions (run \`npm run build:gallery\`)`);
+            continue;
+        }
+
+        for (const [tier, version] of Object.entries(entry.heroVersions)) {
+            if (!version.width || !version.height) {
+                fail(`${label}/hero ${tier}: missing width/height — the page types both into the <img>`);
+            }
+
+            for (const format of ['jpg', 'webp']) {
+                const relPath = version[format];
+                const expectedDir = `${CONFIG.OPTIMIZED}/`;
+                if (!relPath || !relPath.startsWith(expectedDir)) {
+                    fail(`${label}/hero ${tier}: "${relPath}" is not inside ${expectedDir}`);
+                    continue;
+                }
+                const basename = norm(relPath.slice(expectedDir.length));
+                if (!optimizedFiles.has(basename)) {
+                    fail(`${label}/hero ${tier}: generated file not found: ${relPath}`);
+                }
+                referencedOptimized.add(basename);
+            }
+        }
+    }
+}
+
 function checkSeries(data) {
     const hasSource = fs.existsSync(CONFIG.SERIES_SOURCE);
     const hasOutput = fs.existsSync(CONFIG.SERIES_DATA);
@@ -668,6 +716,8 @@ async function main() {
             fail(`${CONFIG.IMAGES}/${file} has no entry in ${CONFIG.DATA} (run \`npm run build:gallery\`)`);
         }
     }
+
+    checkHeroBands(optimizedFiles, referencedOptimized);
 
     // Orphaned derivatives — dead weight in the repo, not a runtime break.
     for (const file of optimizedFiles) {
