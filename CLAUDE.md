@@ -144,46 +144,74 @@ re-run against the committed file, not the injected copy. Numbers above the tabl
 
 ## The series hero is cropped at build time, not by `object-fit`
 
-`.project-hero img` is `aspect-ratio: 21 / 9` with `object-fit: cover` over a 4:3 source,
-so the browser was downloading the full frame and discarding 43% of it — on the one image
-that *is* the LCP element of every series page. `generate-gallery.js` now emits a
-`<name>-hero-<tier>.{jpg,webp}` band per series cover, and `projects/japan.html` points at
-those. Same pixels on screen, fewer over the wire:
+`object-fit: cover` crops at *render* time, so a box whose ratio differs from the file's
+means downloading pixels the browser then discards. `.project-hero img` is the one place
+that mattered: `aspect-ratio: 21 / 9` over a 4:3 source, on the LCP element of every
+series page — 43% of the frame fetched and thrown away. `generate-gallery.js` now emits a
+`<name>-hero-<tier>.{jpg,webp}` band per series cover, recorded on `series-data.json` as
+`heroVersions`.
+
+**Which file the page serves follows the box CSS gives it, and that is not one ratio:**
+
+| viewport | `.project-hero img` box | file served | why |
+|---|---|---|---|
+| > 600px | 21:9 | `-hero-` band | box ≠ source, so the crop is free bytes |
+| ≤ 600px | 4:3 (`style.css` media rule) | full frame | box **is** the source ratio — nothing to crop |
+
+The phone case is not an oversight, it is the point: below 600px the hero already showed
+the whole frame at exactly the pixels on screen. The first version of this change shipped
+the band at every width, and `object-fit: cover` in the 4:3 phone box cropped it on the
+*sides* instead — the mobile hero became the middle 57% of the top-15% sky strip,
+upscaled ~1.6×, under a scrim tuned for a photo that was no longer there. It passed lint,
+`check:gallery --deep`, `check:generated` and all 68 e2e assertions, because every one of
+them compared the file against itself. That is what `checkHeroRatio` now exists for.
 
 | | 1080w | 1920w |
 |---|---|---|
 | Full frame (was) | 140 KB | 382 KB |
 | 21:9 band (now) | 52 KB | 131 KB |
 
-The band beats a naive 43%-of-the-area estimate because `object-position: center 15%` takes
-it from the top of the frame, which here is mostly sky — low entropy, cheap to encode.
+The band beats a naive 43%-of-the-area estimate because `object-position: center 15%`
+takes it from the top of the frame, which here is mostly sky — low entropy, cheap to
+encode.
 
-Local serve, Pixel 5, Slow 4G + 4× CPU, 4 paired runs, median LCP **8672 ms → 3760 ms
-(−4912 ms)**, winning every run with no overlap. The drop is larger than the 88 KB alone
-buys because the hero is not downloading in isolation: on a bandwidth-bound link it queues
-behind and beside CSS, the module chain and the series photos, so bytes removed from the
-critical path compound.
+Local serve, 768×1024 at DPR 2 (the narrowest viewport that gets the band), Slow 4G + 4×
+CPU, 4 paired runs, median LCP **26900 ms → 9680 ms (−17220 ms)**, winning every run with
+no overlap. The absolute numbers are what 400 kbps does to a page; the paired delta is the
+signal. The drop is far larger than the 251 KB alone buys because the hero does not
+download in isolation — on a bandwidth-bound link it queues beside CSS, the module chain
+and the series photos, so bytes off the critical path compound.
 
-Two things hold this together:
+Four things hold this together:
 
-- **`HERO_FOCUS_Y` (0.15) mirrors `object-position: center 15%`.** Crop from anywhere else
-  and the hero silently reframes. Verified by extracting the same band out of the old
-  full-frame derivative and comparing: 36 dB PSNR, i.e. the same pixels through a second
-  encode. A wrong crop lands around 10–15 dB.
+- **`checkHeroRatio` pairs every `aspect-ratio` `style.css` declares for `.project-hero
+  img` with the `<source>` that serves a matching file.** The base rule must equal
+  `HERO_RATIO`; a media query declaring a different ratio must have a `<source
+  media="…">` for the same condition in every series page. Deleting the mobile
+  `<source>` reproduces the bug above and fails this check by name.
+- **`HERO_FOCUS_Y` (0.15) mirrors `object-position: center 15%`**, and `checkHeroRatio`
+  asserts that too. Crop from anywhere else and the hero silently reframes. Verified by
+  extracting the same band out of the old full-frame derivative and comparing: 36 dB
+  PSNR, i.e. the same pixels through a second encode. A wrong crop lands around 10–15 dB.
 - **The band is materialised as raw pixels before `extract`**, rather than predicting the
   resized height. sharp owns that rounding, and being one pixel out is an extract past the
-  edge — a loud build failure — not a quietly different crop.
+  edge — a loud build failure — not a quietly different crop. In the steady state, where
+  both bands are already on disk, `generateHeroBand` reads the height back off the file
+  instead: a header read rather than an ~8 MB raw decode on the path `check:generated`
+  always takes, and it reports what the committed file *is*, so the manifest cannot
+  disagree with disk.
+- **The e2e asserts the decoded ratio against the rendered box**, not against either
+  file, so a mismatch in either direction fails on whichever viewport has it. Above 600px
+  it additionally pins the `-hero-` prefix on `currentSrc`, since that is where the bytes
+  are. `checkHeroBands` checks each band's dimensions against disk under `--deep`, which
+  `verifyPixels` does not reach.
 
 There is no `thumb` band on purpose: the hero is full-bleed and never narrower than ~280
-CSS px, so a 400px band could only ever be the *soft* pick. `checkHeroBands` in
-`scripts/check-gallery.js` ties `heroVersions` to files on disk and keeps the orphan sweep
-honest; the e2e asserts the page's `src` carries the `-hero-` prefix and that its
-`width`/`height` match `heroVersions`, so pointing the page back at the full frame — which
-renders identically and costs 140 KB — fails the suite.
+CSS px, so a 400px band could only ever be the *soft* pick.
 
 The home-page series card is **not** cropped this way. It is 4:3 on desktop, where it
-matches the source exactly, and only 16:9 below 1024px. A mobile-only band would need a
-`media`-switched `<source>` in both `SeriesCardRenderer` and the hand-written copy in
+matches the source exactly, and only 16:9 below 1024px. A mobile-only band would need the
+same `media`-switched `<source>` in both `SeriesCardRenderer` and the hand-written copy in
 `index.html`, with `checkHomeCover` holding the two byte-identical, and measures 140 KB →
 109 KB — half the win for more machinery than the hero needed.
 
@@ -191,7 +219,8 @@ matches the source exactly, and only 16:9 below 1024px. A mobile-only band would
 
 Adding a third `<picture>` rung looks free — `getVersionSrcset` is already parameterised by
 format, so the manifest would carry it with no renderer surgery. But the saving evaporates
-once quality is held equal. Six photos at 1080w, PSNR against the resized original:
+once quality is held equal. The first six photos in manifest order, at 1080w, PSNR
+against the resized original:
 
 | | total bytes | PSNR vs WebP q75 |
 |---|---|---|

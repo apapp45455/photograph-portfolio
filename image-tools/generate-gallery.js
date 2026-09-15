@@ -171,6 +171,22 @@ class ImageProcessor {
         const jpgPath = path.join(CONFIG.DIRECTORIES.OPTIMIZED, jpgName);
         const webpPath = path.join(CONFIG.DIRECTORIES.OPTIMIZED, webpName);
 
+        // Steady state: both bands are committed and there is nothing to write. Read
+        // the height back off the file instead of re-deriving it — a header read, not
+        // the ~8MB raw decode below, on the one path that always runs (CI's
+        // check:generated regenerates into exactly this state). It is also the more
+        // honest number: it reports what the committed file *is*, so the manifest
+        // cannot quietly disagree with disk when HERO_RATIO moves without --force.
+        if (!FORCE && fs.existsSync(webpPath) && fs.existsSync(jpgPath)) {
+            const { height } = await sharp(webpPath).metadata();
+            return {
+                jpg: `${CONFIG.DIRECTORIES.OPTIMIZED}/${jpgName}`,
+                webp: `${CONFIG.DIRECTORIES.OPTIMIZED}/${webpName}`,
+                width: targetWidth,
+                height
+            };
+        }
+
         const { data, info } = await sharp(filePath)
             .rotate().resize(targetWidth).raw().toBuffer({ resolveWithObject: true });
         const height = Math.min(Math.round(targetWidth / CONFIG.HERO_RATIO), info.height);
@@ -180,7 +196,7 @@ class ImageProcessor {
 
         // Same skip-unless-FORCE rule as every other derivative, for the same reason:
         // CI re-runs this generator and diffs, and mozjpeg is not byte-identical
-        // across platforms.
+        // across platforms. Reached only when at least one band is missing, or --force.
         if (FORCE || !fs.existsSync(webpPath)) {
             await band().webp({ quality: CONFIG.WEBP_QUALITY, effort: CONFIG.WEBP_EFFORT }).toFile(webpPath);
         }
@@ -369,4 +385,11 @@ class GalleryGenerator {
     }
 }
 
-GalleryGenerator.run();
+// Exported so scripts/check-gallery.js can assert HERO_RATIO / HERO_FOCUS_Y against
+// the `.project-hero img` rules in style.css. Guarded so requiring this file for that
+// does not kick off a build.
+if (require.main === module) {
+    GalleryGenerator.run();
+}
+
+module.exports = { CONFIG };

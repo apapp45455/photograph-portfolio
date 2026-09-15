@@ -40,16 +40,37 @@
     </header>
 
     <main class="project-main" id="main" tabindex="-1">
-      <!-- Hero: the 21:9 band of the cover; the full frame appears in the sequence below.
-           These are the `-hero-` derivatives, cropped at build time rather than by
-           object-fit, so the 43% of the frame this band never shows is not downloaded
-           on the one image that is this page's LCP element. The crop lives in
-           generate-gallery.js (HERO_RATIO / HERO_FOCUS_Y) and its dimensions are on
-           series-data.json as `heroVersions` — which is what the e2e suite asserts
-           these paths and width/height against. No thumb tier on purpose: a 400px band
-           would only ever be the soft pick for a full-bleed image. -->
+      <!-- Hero: the full frame appears again in the sequence below.
+           Which file this serves follows the box CSS gives it, because object-fit
+           cropping at render time means downloading pixels that are then discarded:
+
+           - ≤600px `.project-hero img` is `aspect-ratio: 4 / 3` (style.css), which is
+             the source ratio, so the whole frame is exactly the pixels on screen and
+             there is nothing to crop away. A band here would be cover-cropped on the
+             *sides* to 57% of its width and upscaled — a different, softer photo.
+           - Above 600px the box is 21:9 over a 4:3 source, so 43% of the frame was
+             being downloaded and thrown away on this page's LCP element. Those
+             viewports get the `-hero-` band, cropped at build time instead.
+
+           The crop lives in generate-gallery.js (HERO_RATIO / HERO_FOCUS_Y) and its
+           dimensions are on series-data.json as `heroVersions`. checkHeroRatio pairs
+           every `aspect-ratio` style.css declares for this selector with the <source>
+           that serves a matching file, so the two cannot drift apart again. No thumb
+           tier on purpose: a 400px band would only ever be the soft pick here. -->
       <div class="project-hero">
         <picture>
+          <source
+            media="(max-width: 600px)"
+            type="image/webp"
+            srcset="../images/optimized/日本_會津若松城-medium.webp 1080w, ../images/optimized/日本_會津若松城-large.webp 1920w"
+            sizes="calc(100vw - 40px)"
+          />
+          <source
+            media="(max-width: 600px)"
+            type="image/jpeg"
+            srcset="../images/optimized/日本_會津若松城-medium.jpg 1080w, ../images/optimized/日本_會津若松城-large.jpg 1920w"
+            sizes="calc(100vw - 40px)"
+          />
           <source
             type="image/webp"
             srcset="../images/optimized/日本_會津若松城-hero-medium.webp 1080w, ../images/optimized/日本_會津若松城-hero-large.webp 1920w"

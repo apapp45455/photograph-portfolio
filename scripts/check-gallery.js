@@ -24,6 +24,8 @@ const CONFIG = {
     DATA: 'js/gallery-data.json',
     SERIES_SOURCE: 'image-tools/series.json',
     SERIES_DATA: 'js/series-data.json',
+    STYLE: 'style.css',
+    PROJECTS: 'projects',
     SIZES: { thumb: 400, medium: 1080, large: 1920 },
     ALLOWED_EXTENSIONS: ['.jpg', '.jpeg', '.png']
 };
@@ -227,7 +229,7 @@ function checkSeriesSource(data) {
  * series page. Registering them keeps the orphan sweep honest; the existence check
  * catches a series-data.json committed without the files it names.
  */
-function checkHeroBands(optimizedFiles, referencedOptimized) {
+async function checkHeroBands(optimizedFiles, referencedOptimized) {
     if (!fs.existsSync(CONFIG.SERIES_DATA)) return;
 
     let series;
@@ -262,10 +264,141 @@ function checkHeroBands(optimizedFiles, referencedOptimized) {
                 const basename = norm(relPath.slice(expectedDir.length));
                 if (!optimizedFiles.has(basename)) {
                     fail(`${label}/hero ${tier}: generated file not found: ${relPath}`);
+                    continue;
                 }
                 referencedOptimized.add(basename);
+
+                // verifyPixels walks entry.versions only, so without this a band is the
+                // one derivative whose manifest dimensions nothing ever opens. Move
+                // HERO_RATIO and rebuild without --force and the manifest takes the new
+                // height while the files keep the old one — and the page types that
+                // wrong height straight into the LCP element.
+                if (DEEP) {
+                    const sharp = require('sharp');
+                    const meta = await sharp(relPath).metadata();
+                    if (meta.width !== version.width || meta.height !== version.height) {
+                        fail(`${relPath}: file is ${meta.width}x${meta.height}, manifest declares ${version.width}x${version.height} — run \`npm run build:gallery -- --force\``);
+                    }
+                }
             }
         }
+    }
+}
+
+/**
+ * `.project-hero img` takes its box from style.css and its pixels from <picture>.
+ * When the two ratios disagree the browser cover-crops the difference at render time:
+ * bytes downloaded and discarded one way, a silently reframed photo the other. The
+ * crop constants are a third copy of numbers that also live in the stylesheet, so tie
+ * them together the way checkGridTiers ties GRID_TIERS to IMAGE_SIZES.
+ *
+ * A media query declaring a *different* ratio is legitimate — below 600px the box is
+ * the source's own 4:3, where the full frame is exactly the pixels on screen — but
+ * only if the page serves a different file there. That pairing is the actual
+ * invariant, and it is what notices a band being handed to a box shaped for a frame.
+ */
+function heroImageRules(css) {
+    // Brace-counted rather than matched in one regex: a rule and the @media around it
+    // are both hand-written here, but attributing a rule to the wrong block is exactly
+    // the mistake this function exists to catch, so do not guess at nesting.
+    const rules = [];
+    const stack = [];
+    let pos = 0;
+    let preludeStart = 0;
+
+    while (pos < css.length) {
+        const ch = css[pos];
+        if (ch === '{') {
+            const prelude = css.slice(preludeStart, pos).trim();
+            if (/^@/.test(prelude)) {
+                stack.push(/^@media/i.test(prelude) ? prelude.replace(/^@media\s*/i, '').trim() : null);
+            } else {
+                const end = css.indexOf('}', pos);
+                if (end === -1) break;
+                if (prelude.split(',').some((selector) => selector.trim().endsWith('.project-hero img'))) {
+                    rules.push({
+                        media: stack.filter(Boolean).join(' and ') || null,
+                        body: css.slice(pos + 1, end)
+                    });
+                }
+                pos = end + 1;
+                preludeStart = pos;
+                continue;
+            }
+            preludeStart = pos + 1;
+        } else if (ch === '}') {
+            stack.pop();
+            preludeStart = pos + 1;
+        }
+        pos++;
+    }
+
+    return rules;
+}
+
+function checkHeroRatio() {
+    if (!fs.existsSync(CONFIG.STYLE) || !fs.existsSync(CONFIG.PROJECTS)) return;
+
+    let GENERATOR;
+    try {
+        ({ CONFIG: GENERATOR } = require('../image-tools/generate-gallery.js'));
+    } catch (error) {
+        fail(`could not read HERO_RATIO from image-tools/generate-gallery.js: ${error.message}`);
+        return;
+    }
+
+    const css = fs.readFileSync(CONFIG.STYLE, 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+    const rules = heroImageRules(css);
+
+    if (rules.length === 0) {
+        fail(`${CONFIG.STYLE}: no rule for ".project-hero img" — the hero band has nothing to agree with`);
+        return;
+    }
+
+    const pages = listFiles(CONFIG.PROJECTS).filter((file) => file.endsWith('.html'));
+    const squash = (value) => value.replace(/\s+/g, ' ').trim();
+
+    let sawBandRule = false;
+
+    for (const rule of rules) {
+        const declared = /aspect-ratio\s*:\s*([\d.]+)\s*\/\s*([\d.]+)/.exec(rule.body);
+        if (!declared) continue;
+
+        const value = Number(declared[1]) / Number(declared[2]);
+        const where = rule.media ? `@media ${rule.media}` : 'the base rule';
+
+        if (Math.abs(value - GENERATOR.HERO_RATIO) < 1e-6) {
+            sawBandRule = true;
+
+            // Only meaningful where the band is actually served: it records which band
+            // generateHeroBand cut, so a drift here reframes the hero with nothing else
+            // noticing.
+            const focus = /object-position\s*:\s*[^;]*?([\d.]+)%/.exec(rule.body);
+            if (focus && Math.abs(Number(focus[1]) / 100 - GENERATOR.HERO_FOCUS_Y) > 1e-6) {
+                fail(`${CONFIG.STYLE} (${where}): object-position Y is ${focus[1]}%, HERO_FOCUS_Y is ${GENERATOR.HERO_FOCUS_Y * 100}% — the band is cut somewhere else than it is shown`);
+            }
+            continue;
+        }
+
+        // A different box needs a different file, named on a <source> for the same
+        // condition. Without one the band is cover-cropped into it.
+        if (!rule.media) {
+            fail(`${CONFIG.STYLE}: ".project-hero img" is aspect-ratio ${squash(declared[0].split(':')[1])}, but the band is cut at ${GENERATOR.HERO_RATIO.toFixed(4)} — the hero would be cover-cropped`);
+            continue;
+        }
+
+        for (const page of pages) {
+            const html = fs.readFileSync(path.join(CONFIG.PROJECTS, page), 'utf8');
+            const served = /<source\b[^>]*\bmedia="([^"]+)"/g;
+            const conditions = [...html.matchAll(served)].map((match) => squash(match[1]));
+            if (!conditions.includes(squash(rule.media))) {
+                fail(`${CONFIG.PROJECTS}/${page}: ${CONFIG.STYLE} gives ".project-hero img" a different ratio at ${where}, but no <source media="${squash(rule.media)}"> serves a file for it — the band is cover-cropped and upscaled there`);
+            }
+        }
+    }
+
+    if (!sawBandRule) {
+        fail(`${CONFIG.STYLE}: no ".project-hero img" rule declares aspect-ratio ${GENERATOR.HERO_RATIO.toFixed(4)} — nothing shows the band the generator cuts`);
     }
 }
 
@@ -717,7 +850,8 @@ async function main() {
         }
     }
 
-    checkHeroBands(optimizedFiles, referencedOptimized);
+    await checkHeroBands(optimizedFiles, referencedOptimized);
+    checkHeroRatio();
 
     // Orphaned derivatives — dead weight in the repo, not a runtime break.
     for (const file of optimizedFiles) {
