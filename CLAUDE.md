@@ -182,13 +182,19 @@ signal. The drop is far larger than the 251 KB alone buys because the hero does 
 download in isolation — on a bandwidth-bound link it queues beside CSS, the module chain
 and the series photos, so bytes off the critical path compound.
 
-Above 600px the cover is now fetched **twice**: once as the band for the hero, once as
-the full frame for its slot in the sequence below, where it is `layout[3]`. They shared a
-download before. That is +52 KB of total transfer against −88 KB on the critical path,
-and the sequence copy is `loading="lazy"`, so it is off the critical path entirely — the
-right way round, but worth knowing before someone "fixes" the duplicate by pointing the
-sequence at the band, which would show the crop where the whole frame belongs. Below
-600px nothing changed: one frame, one download, same bytes as before.
+The cover also appears in the sequence below, as `layout[3]`, so the band changes what
+that copy resolves to. Above 600px the hero used to fetch `large` and the sequence copy
+then reused it — one download for both. Now the hero takes the 131 KB band and the
+sequence copy, a half span needing ~1040 px, falls to `medium`: **382 KB → 271 KB** for
+that photo, and 1438 KB → 1187 KB across a full scroll of the page at 1440@2x. Below
+600px nothing moves at all — both already resolved to the same full-frame `medium`, and
+still do.
+
+An earlier revision of this file claimed the opposite (+52 KB, "they shared a download
+before" as an argument against the change). That was reasoned from the markup and never
+measured; the numbers above are read off `currentSrc` and `transferSize` in both trees.
+Worth keeping only as the reason not to "fix" the two entries by pointing the sequence at
+the band, which would show the crop where the whole frame belongs.
 
 Four things hold this together:
 
@@ -243,6 +249,64 @@ matches the source exactly, and only 16:9 below 1024px. A mobile-only band would
 same `media`-switched `<source>` in both `SeriesCardRenderer` and the hand-written copy in
 `index.html`, with `checkHomeCover` holding the two byte-identical, and measures 140 KB →
 109 KB — half the win for more machinery than the hero needed.
+
+## Two ways to speed up the home page that do not work (measured)
+
+The home page pulls ~1157 KB of images during load at 1440@2x, and its LCP element — the
+hand-written card cover — is the 382 KB `large` file. The waterfall looks like an obvious
+target: the cover starts at 123 ms and finishes at **2420 ms**, because at 829 ms, the
+moment the module chain resolves and the grid renders, nine off-screen tiles open at once
+and take the pipe. On its own the cover needs ~760 ms of it.
+
+**`fetchpriority="low"` on the grid tiles does not fix that.** The tiles are already
+`loading="lazy"`; the browser widens its distance-from-viewport threshold on a slow link
+and loads them anyway. Marking them low looks like the exact native lever for "let the
+LCP image go first", and it moves nothing:
+
+| | method | result |
+|---|---|---|
+| local `http.server` | 4 runs each, 4 Mbps | +60 / 0 / −4 / +8 ms — noise |
+| deployed, HTTP/2 | 4 control runs **then** 4 treatment runs | −1904 ms — apparently a large win |
+| deployed, HTTP/2 | 6 **interleaved** pairs, alternating which side runs first | **+1820 ms median, low-prio wins 2/6** |
+
+The middle row is the trap. Batched A-then-B on the deployed site is not a paired
+measurement: control alone ranged 2868–10408 ms across runs, so a slow stretch of network
+during one batch invents an effect of any size you like. Interleaving the pairs and
+alternating their order kills it. **Any deployed-site comparison here has to interleave;
+running all of A and then all of B will produce a confident number that is noise.** (The
+local `http.server` row is also weaker than it looks for a priority test specifically — it
+is HTTP/1.1, so there is no multiplexing for priority to reorder. That is why the test was
+repeated against Pages, which is HTTP/2.)
+
+**An intermediate size tier works, but has not been taken.** Every DPR-2 desktop from 768
+to 1920 needs 1216–1964 px and so lands on `large`; there is nothing between 1080 and
+1920. A `wide: 1700` tier covers the whole range:
+
+| | LCP at 1440@2x |
+|---|---|
+| 4 Mbps | 2240 → 1592 ms (−648) |
+| 1.5 Mbps | 6896 → 6520 ms (−376) |
+| mobile 390@3x | unchanged — phones already take `medium` |
+
+It is a genuine byte reduction (382 → 305 KB on the LCP element) rather than a scheduling
+hint, so it reproduces. It costs **+9.7 MB in the repo** (36 derivatives, taking
+`images/optimized/` from 17 MB to 27 MB, and ~540 KB more per photo added from then on),
+and it blunts `checkGridTiers`: that check derives the cap as "GRID_TIERS must not include
+the *widest* tier", which with four tiers would still permit `wide` — a 3× phone at 100vw
+computes 1170 and would take a 1700 px file into a 390 px box, the exact regression the cap
+exists for. Reinstating it means expressing the cap as a width rather than deriving it.
+
+Against the ±2000 ms run-to-run spread the deployed site actually shows, −648 ms of
+measured local improvement is not visible to a visitor. Left undone deliberately — but
+the tier value is right if it is ever wanted: 1500 would miss 1440@2x and 1920@2x, which
+both need 1608.
+
+**When the hand-written card is what changed, check it first.** The first run of the tier
+experiment made LCP *worse* (+868 ms) and total bytes *larger* (1157 → 1462 KB), because
+`index.html`'s hand-written srcset still listed three tiers while `SeriesCardRenderer`
+now built four: `replaceChildren` swapped the card, the browser re-selected, and both
+`large` and `wide` were fetched. `checkHomeCover` catches it — it was simply not run
+before measuring.
 
 ## AVIF is not worth it here (measured)
 
